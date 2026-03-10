@@ -25,7 +25,7 @@ public class OutputCommandService {
             return RenderedOutput.of(withFile(command.businessResponse(), null));
         }
 
-        ScenarioOutputPolicy policy = outputScenarioPolicyResolver.resolve(command.group(), command.type());
+        ScenarioOutputPolicy policy = outputScenarioPolicyResolver.resolve(command.builderConfig());
         if (!policy.includeFile()) {
             return RenderedOutput.of(withFile(command.businessResponse(), null));
         }
@@ -33,8 +33,7 @@ public class OutputCommandService {
         OutputFormat resolvedOutputFormat = resolveOutputFormat(command, policy);
         OutputRenderer renderer = outputRendererFactory.get(resolvedOutputFormat);
         RenderedFile renderedFile = renderer.render(new OutputRenderCommand(
-                command.group(),
-                command.type(),
+                command.builderConfig(),
                 resolvedOutputFormat,
                 command.businessResponse()
         ));

@@ -7,8 +7,7 @@ import java.util.List;
 
 public record BuilderConsultCommand(
         String text,
-        Integer group,
-        Integer type,
+        Integer builderId,
         OutputFormat outputFormat,
         List<MultipartFile> files,
         String clientIp

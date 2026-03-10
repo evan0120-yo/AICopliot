@@ -1,9 +1,9 @@
 package com.citrus.rewardbridge.output.service.command.renderer;
 
-import com.citrus.rewardbridge.common.scenario.ConsultScenario;
 import com.citrus.rewardbridge.output.dto.OutputFormat;
 import com.citrus.rewardbridge.output.dto.OutputRenderCommand;
 import com.citrus.rewardbridge.output.dto.RenderedFile;
+import org.springframework.util.StringUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -15,15 +15,19 @@ public interface OutputRenderer {
     RenderedFile render(OutputRenderCommand command);
 
     default String buildFileName(OutputRenderCommand command, String extension) {
-        return ConsultScenario.fromCodes(command.group(), command.type())
-                .map(scenario -> "%s-consult.%s".formatted(scenario.filePrefix(), extension))
-                .orElse("group%d-type%d-consult.%s".formatted(command.group(), command.type(), extension));
+        String filePrefix = command.builderConfig() == null ? null : command.builderConfig().getFilePrefix();
+        if (!StringUtils.hasText(filePrefix)) {
+            Integer builderId = command.builderConfig() == null ? null : command.builderConfig().getBuilderId();
+            filePrefix = builderId == null ? "rewardbridge" : "builder-%d".formatted(builderId);
+        }
+        return "%s-consult.%s".formatted(filePrefix, extension);
     }
 
     default String buildTitle(OutputRenderCommand command) {
-        return ConsultScenario.fromCodes(command.group(), command.type())
-                .map(scenario -> "RewardBridge %s".formatted(scenario.displayName()))
-                .orElse("RewardBridge group=%d type=%d".formatted(command.group(), command.type()));
+        if (command.builderConfig() == null || !StringUtils.hasText(command.builderConfig().getName())) {
+            return "RewardBridge Consult Output";
+        }
+        return "RewardBridge %s".formatted(command.builderConfig().getName());
     }
 
     default List<String> splitLines(OutputRenderCommand command) {

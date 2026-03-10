@@ -21,26 +21,23 @@ public class GatekeeperCommandUseCase {
 
     public RenderedOutput consult(ConsultRequest request, String clientIp) {
         log.info(
-                "Gatekeeper use case started. clientIp={}, group={}, type={}, outputFormat={}",
+                "Gatekeeper use case started. clientIp={}, builderId={}, outputFormat={}",
                 clientIp,
-                request.getGroup(),
-                request.getType(),
+                request.getBuilderId(),
                 request.getOutputFormat()
         );
         ConsultGuardResult guardResult = consultGuardService.guard(request, clientIp);
         log.info(
-                "Gatekeeper use case forwarding request to Builder. clientIp={}, group={}, type={}, outputFormat={}",
+                "Gatekeeper use case forwarding request to Builder. clientIp={}, builderId={}, outputFormat={}",
                 clientIp,
-                guardResult.group(),
-                guardResult.type(),
+                guardResult.builderId(),
                 describeOutputFormat(guardResult.outputFormat())
         );
 
         RenderedOutput response = builderCommandUseCase.consult(
                 new BuilderConsultCommand(
                         request.getText(),
-                        guardResult.group(),
-                        guardResult.type(),
+                        guardResult.builderId(),
                         guardResult.outputFormat(),
                         request.getFiles(),
                         clientIp
@@ -48,10 +45,9 @@ public class GatekeeperCommandUseCase {
         );
 
         log.info(
-                "Builder returned response to Gatekeeper use case. clientIp={}, group={}, type={}, outputFormat={}",
+                "Builder returned response to Gatekeeper use case. clientIp={}, builderId={}, outputFormat={}",
                 clientIp,
-                guardResult.group(),
-                guardResult.type(),
+                guardResult.builderId(),
                 describeOutputFormat(guardResult.outputFormat())
         );
         return response;

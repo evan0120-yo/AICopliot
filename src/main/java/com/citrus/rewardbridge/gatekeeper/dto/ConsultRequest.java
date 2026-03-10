@@ -11,12 +11,10 @@ import java.util.List;
 @Setter
 public class ConsultRequest {
 
+    @NotNull(message = "builderId is required")
+    private Integer builderId;
+
     private String text;
-
-    private Integer group;
-
-    @NotNull(message = "type is required")
-    private Integer type;
 
     private String outputFormat;
 

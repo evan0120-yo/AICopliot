@@ -82,7 +82,7 @@ gatekeeper/
 │   ├── command/
 │   └── query/
 │   └── guard/
-│       └── AuthGuardService.java    ← 驗證邏輯在這
+│       └── ConsultGuardService.java    ← 驗證邏輯在這
 ```
 
 - Guard 是 Service 層的一部分，由 UseCase 呼叫
@@ -96,91 +96,199 @@ gatekeeper/
 ```
 com.citrus.rewardbridge
 ├── initData/
-│   └── Local.java
+│   └── Local.java                  ← local profile seed data
+│
+├── common/
+│   ├── dto/                        ← ConsultBusinessResponse、ConsultFilePayload
+│   ├── entity/                     ← BuilderConfigEntity（跨模組共用）
+│   ├── repository/                 ← BuilderConfigRepository
+│   ├── exception/
+│   ├── response/                   ← ApiResponse
+│   └── config/                     ← RewardBridgeConfiguration、RewardBridgeProperties
 │
 ├── gatekeeper/
-│   ├── controller/
+│   ├── controller/                 ← GatekeeperController
 │   ├── usecase/
-│   │   ├── command/
-│   │   └── query/
+│   │   └── command/                ← GatekeeperCommandUseCase
 │   ├── service/
-│   │   ├── command/
-│   │   ├── query/
-│   │   └── guard/
-│   ├── repository/
-│   └── dto/
+│   │   └── guard/                  ← ConsultGuardService、ClientIpResolver
+│   └── dto/                        ← ConsultRequest、ConsultGuardResult
 │
 ├── builder/
-│   ├── controller/
 │   ├── usecase/
-│   │   ├── command/
-│   │   └── query/
+│   │   └── command/                ← BuilderCommandUseCase
 │   ├── service/
-│   │   ├── command/
-│   │   └── query/
-│   ├── repository/
-│   └── dto/
-│
-├── rag/
-│   ├── controller/
-│   ├── usecase/
-│   │   ├── command/
-│   │   └── query/
-│   ├── service/
-│   │   ├── command/
-│   │   └── query/
-│   ├── repository/
-│   ├── factory/               ← 檢索策略工廠（FullContextReader / VectorSearchReader）
-│   └── dto/
+│   │   └── command/                ← BuilderCommandService
+│   │       └── override/           ← BuilderOverrideFactory + 覆蓋策略
+│   └── dto/                        ← BuilderConsultCommand
 │
 ├── source/
-│   ├── controller/
 │   ├── usecase/
-│   │   ├── command/
-│   │   └── query/
+│   │   └── query/                  ← SourceQueryUseCase
 │   ├── service/
-│   │   ├── command/
-│   │   └── query/
-│   │       └── strategy/      ← group + type 對應策略（BaseScenarioSourceStrategy）
-│   ├── repository/
-│   └── dto/
+│   │   └── query/                  ← SourceQueryService
+│   ├── entity/                     ← SourceTypeEntity、SourceEntity
+│   ├── repository/                 ← SourceTypeRepository、SourceRepository
+│   └── dto/                        ← SourceEntryDto、SourceLoadResult
+│
+├── rag/
+│   ├── usecase/
+│   │   └── query/                  ← RagQueryUseCase
+│   ├── service/
+│   │   └── query/                  ← RagQueryService
+│   ├── entity/                     ← RagSupplementEntity
+│   ├── repository/                 ← RagSupplementRepository
+│   └── dto/                        ← RagSupplementDto
 │
 ├── aiclient/
 │   ├── usecase/
-│   │   ├── command/
-│   │   └── query/
+│   │   └── command/                ← AiClientCommandUseCase
 │   ├── service/
-│   │   ├── command/
-│   │   └── query/
-│   ├── factory/               ← AI 供應商工廠
-│   └── dto/
+│   │   └── command/                ← AiClientCommandService
+│   └── dto/                        ← AiConsultResponse
 │
 ├── output/
 │   ├── usecase/
-│   │   └── command/
+│   │   └── command/                ← OutputCommandUseCase
 │   ├── service/
-│   │   └── command/
-│   │       └── renderer/      ← output renderer / template 分派
-│   └── dto/
+│   │   └── command/                ← OutputCommandService
+│   │       └── renderer/           ← OutputRenderer、MarkdownRenderer、XlsxRenderer
+│   └── dto/                        ← OutputFormat、OutputRenderCommand、RenderedOutput、
+│                                      RenderedFile、ScenarioOutputPolicy
 │
-└── common/                    ← 共用工具、例外定義、Response 格式
-    ├── dto/                   ← ConsultBusinessResponse、ConsultFilePayload
-    ├── scenario/              ← ConsultScenario、ConsultGroupCode、ConsultTypeCode
-    ├── exception/
-    ├── response/
-    └── config/
 ```
 
 ### 備註
-- **aiclient** 沒有 controller 和 repository：它不直接接收 HTTP 請求，也不存取 DB，純粹對外呼叫 AI API
-- **output** 沒有 repository：它不直接查 DB，主要做最終格式渲染
-- **factory / renderer factory** 只出現在有工廠模式的模組（rag、aiclient、output）
-- **strategy/** 只出現在 source 模組（位於 `service/query/strategy/`）
-- **common/** 放跨模組共用的東西（exception、response wrapper、config、scenario enum registry）
+- **BuilderConfigEntity** 放在 `common/entity`，因為它被 Gatekeeper（驗證）、Builder（讀配置）、Output（讀 include_file）跨模組使用
+- **source** 不再有 strategy/ 目錄，因為不再需要 per-scenario strategy，改為依 builderId 統一查詢
+- **rag** 不再有 factory/ 目錄，檢索模式判斷在 RagQueryService 內部處理
+- **builder** 新增 `service/command/override/` 目錄，放 Override Factory 與覆蓋策略
+- **aiclient** 仍然沒有 controller 和 repository
+- **output** 仍然沒有 repository
+- **common/** 放跨模組共用的東西（exception、response wrapper、config、BuilderConfig entity）
 
 ---
 
-## 5. Virtual Threads（Java 21）
+## 5. Entity Schema
+
+### 5.1 BuilderConfigEntity（common/entity）
+
+```java
+@Entity
+@Table(name = "rb_builder_config")
+public class BuilderConfigEntity {
+    @Id
+    private Integer builderId;
+
+    @Column(nullable = false, unique = true)
+    private String builderCode;        // "pm-estimate", "qa-smoke-doc"
+
+    @Column(nullable = false)
+    private String groupLabel;          // "產品經理", "測試團隊"（僅顯示）
+
+    @Column(nullable = false)
+    private String name;                // "PM 工時估算與建議"
+
+    @Column(columnDefinition = "TEXT")
+    private String description;         // scenario summary
+
+    @Column(nullable = false)
+    private boolean includeFile;        // 是否附帶檔案輸出
+
+    private String defaultOutputFormat; // "xlsx", nullable
+
+    private String filePrefix;          // "qa-smoke-doc"
+
+    @Column(nullable = false)
+    private boolean active;             // 是否啟用
+}
+```
+
+### 5.2 SourceTypeEntity（source/entity）
+
+```java
+@Entity
+@Table(name = "rb_source_type")
+public class SourceTypeEntity {
+    @Id
+    private Integer typeId;
+
+    @Column(nullable = false, unique = true)
+    private String typeCode;            // "PINNED", "CHECK", "CONTENT"
+
+    @Column(nullable = false)
+    private String typeName;            // "置頂類", "檢查類", "內文類"
+
+    private String description;
+
+    @Column(nullable = false)
+    private Integer sortPriority;       // 類別排序，越小越前
+}
+```
+
+### 5.3 SourceEntity（source/entity）
+
+```java
+@Entity
+@Table(name = "rb_source")
+public class SourceEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long sourceId;
+
+    @Column(nullable = false)
+    private Integer builderId;          // FK → rb_builder_config
+
+    @Column(nullable = false)
+    private Integer typeId;             // FK → rb_source_type
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String prompts;             // prompt 內容
+
+    @Column(nullable = false)
+    private Integer orderNo;            // 同 type 內排序
+
+    @Column(nullable = false)
+    private boolean needsRagSupplement; // 是否需要 RAG 補充
+}
+```
+
+### 5.4 RagSupplementEntity（rag/entity）
+
+```java
+@Entity
+@Table(name = "rb_rag_supplement")
+public class RagSupplementEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long ragId;
+
+    @Column(nullable = false)
+    private Long sourceId;              // FK → rb_source
+
+    @Column(nullable = false)
+    private String ragType;             // "execution_steps", "default_content", "column_rules"
+
+    @Column(nullable = false)
+    private String title;               // 標題
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String content;             // 補充內容
+
+    @Column(nullable = false)
+    private Integer orderNo;            // 在此 source 下排序
+
+    @Column(nullable = false)
+    private boolean overridable;        // 是否可被前端覆蓋
+
+    @Column(nullable = false)
+    private String retrievalMode;       // "full_context" | "vector_search"
+}
+```
+
+---
+
+## 6. Virtual Threads（Java 21）
 
 本專案啟用 Java 21 Virtual Threads：
 
@@ -195,7 +303,7 @@ spring:
 
 ### 適用場景
 - AIClient 呼叫 OpenAI API（I/O bound，等待外部回應）
-- Builder 的 Phase 1 並行資料收集（同時打 RAG + Source）
+- Builder 載入 Source + RAG 的並行查詢
 - DB 查詢
 - 未來 RAG 切換向量檢索時的 embedding API 呼叫
 
@@ -206,49 +314,62 @@ spring:
 
 ---
 
-## 6. Data Flow（完整資料流）
+## 7. Data Flow（完整資料流）
 
-以目前已落地的 `group=1`, `type=1`（產品經理詢問開發工時和意見）為例：
+以 `builderId=1`（產品經理詢問開發工時和意見）為例：
 
 ```
 1. PM 送出請求
    POST /api/consult
-   { text: "...", group: 1, type: 1, outputFormat?: "markdown", files: [...] }
+   { builderId: 1, text: "...", outputFormat?: "markdown", files: [...] }
 
 2. Gatekeeper (Controller → UseCase → Guard Service)
-   → 基礎 guard 檢查
    → 解析 client IP 並保留未來驗證插點
-   → 驗證 group / type / 檔案限制
+   → 驗證 builderId 是否存在且 active
+   → 驗證檔案限制（數量、大小、副檔名）
    → 若有傳入 outputFormat，再驗證格式是否合法
    → 通過 → 轉發至 Builder
 
 3. Builder (UseCase)
-   → BuilderCommandUseCase.consult(text, group, type, outputFormat, files)
+   → BuilderCommandUseCase.consult(builderId, text, outputFormat, files, clientIp)
 
-   3a. Phase 1（並行）
-       → RagQueryUseCase.getByScenario(group, type)  → scenario 關聯的文件全文
-       → SourceQueryUseCase.getData(group, type)     → 結構化資料 + ragKeys[]
+   3a. Step 1：載入 Builder Config
+       → BuilderConfigRepository.findById(builderId)
+       → 取得 name, group_label, include_file, default_output_format 等
 
-   3a-1. Attachment Handling
+   3b. Step 2：載入所有 Source
+       → SourceQueryUseCase.loadByBuilderId(builderId)
+       → 回傳 List<SourceEntryDto>，已按 source_type.sort_priority → source.order_no 排序
+       → 每個 entry 包含：sourceId, typeCode, prompts, orderNo, needsRagSupplement
+
+   3c. Step 3：撈 RAG Supplement
+       → 對 needsRagSupplement=true 的 source entry：
+         → RagQueryUseCase.queryBySourceId(sourceId)
+         → 回傳 List<RagSupplementDto>，按 order_no 排序
+         → 每個 supplement 包含：ragType, title, content, orderNo, overridable
+
+   3d. Step 4：組裝完整 prompt
+       → BuilderCommandService.assemblePrompt(builderConfig, sourceEntries, ragSupplements, userText)
+       → Builder Override Factory 檢查：
+         → 若前端有傳 text，且某個 RAG supplement 的 overridable=true
+         → 由 Override Factory 決定覆蓋策略（簡單替換 / 模板合併 / etc.）
+       → 最終產出完整 prompt 字串
+
+   3d-1. Attachment Handling
        → PM 上傳的文件 / 圖片不做中間加工
        → 直接原樣交由 AIClient / Responses API 作為模型輸入
        → 初期不落地保存
        → 若模型端不接受附件格式或附件串入失敗，直接回固定失敗格式，不做 fallback
 
-   3b. Phase 2
-       → RagQueryUseCase.getByKeys(ragKeys)          → 指定文件全文
+   3e. Step 5：送 AI
+       → AiClientCommandUseCase.analyze(model, text, prompt, files)
+       → AI 回應
 
-   3c. Assemble prompt
-       → system prompt + all context + user text
-
-   3d. Send to AI
-       → AiClientCommandUseCase.analyze(...)         → AI 回應
-
-   3e. Output
-        → OutputCommandUseCase.render(...)
-        → 永遠保留文字回應
-        → 依 scenario 決定是否附帶檔案
-        → 若附帶檔案，再依 outputFormat 或 scenario default 渲染 markdown / xlsx
+   3f. Step 6：Output
+       → OutputCommandUseCase.render(builderConfig, outputFormat, response)
+       → 永遠保留文字回應
+       → 依 builder config 的 include_file 決定是否附帶檔案
+       → 若附帶檔案，再依 outputFormat 或 builder default 渲染 markdown / xlsx
 
 4. 回傳 AI 回應給 PM
    → HTTP 層固定回 JSON
@@ -256,14 +377,21 @@ spring:
    → `data.file` 若存在，前端可提供下載按鈕
 ```
 
-### ragKeys 資料來源
-- ragKeys 存在 **DB** 中，由 Source 的 Strategy 透過 `rb_source_rag_mapping` 查詢取得
-- mapping table 含 `group_code + type_code + document_key + sort_order`
-- 這讓同一個 scenario 可以精確指定要額外補哪些 RAG 文件，以及補入順序
+### Source 排序邏輯
+Source 排序分兩層：
+1. **type sort_priority**：置頂類(1) → 檢查類(2) → 內文類(3)
+2. **source order_no**：同 type 內的排序
+
+最終 prompt 片段的排列順序就是：PINNED 的 prompt 片段 → CHECK 的 prompt 片段 → CONTENT 的 prompt 片段，每組內部再依 order_no 排列。
+
+### RAG Supplement 查詢邏輯
+- 只有 `needs_rag_supplement = true` 的 Source 才會觸發 RAG 查詢
+- RAG 查詢依 `sourceId` 精確撈取，不會撈到其他 Source 的補充資料
+- 撈回來的 supplement 按 `order_no` 排序，插入對應 source 的 prompt 後方
 
 ---
 
-## 7. Error Handling
+## 8. Error Handling
 
 ### 統一回應格式
 ```java
@@ -294,11 +422,11 @@ consult 的業務 payload 採固定 JSON 結構：
 }
 ```
 
-若某個 scenario 需要附帶檔案，response 會額外帶出 `file` 欄位：
+若某個 builder 需要附帶檔案，response 會額外帶出 `file` 欄位：
 
 ```json
 {
-  "fileName": "qa-type2-consult.xlsx",
+  "fileName": "qa-smoke-doc-consult.xlsx",
   "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "base64": "UEsDB..."
 }
@@ -344,25 +472,25 @@ consult 的業務 payload 採固定 JSON 結構：
 
 ---
 
-## 8. Naming Convention
+## 9. Naming Convention
 
 | 類型 | 命名規則 | 範例 |
 |------|---------|------|
-| Controller | `XxxController` | `BuilderController` |
+| Controller | `XxxController` | `GatekeeperController` |
 | Command UseCase | `XxxCommandUseCase` | `BuilderCommandUseCase` |
-| Query UseCase | `XxxQueryUseCase` | `RagQueryUseCase` |
-| Command Service | `XxxCommandService` | `SourceCommandService` |
-| Query Service | `XxxQueryService` | `RagQueryService` |
-| Guard Service | `XxxGuardService` | `AuthGuardService` |
+| Query UseCase | `XxxQueryUseCase` | `SourceQueryUseCase` |
+| Command Service | `XxxCommandService` | `BuilderCommandService` |
+| Query Service | `XxxQueryService` | `SourceQueryService` |
+| Guard Service | `XxxGuardService` | `ConsultGuardService` |
 | Repository | `XxxRepository` | `SourceRepository` |
-| Factory | `XxxFactory` | `AiClientFactory` |
-| Strategy | `XxxStrategy` | `DevEstimateStrategy` |
+| Factory | `XxxFactory` | `BuilderOverrideFactory` |
 | DTO | `XxxRequest` / `XxxResponse` / `XxxDto` | `ConsultRequest` |
-| Entity | `XxxEntity` | `SourceScenarioConfigEntity` |
+| Entity | `XxxEntity` | `SourceEntity` |
+| Override Strategy | `XxxOverrideStrategy` | `SimpleOverrideStrategy` |
 
 ---
 
-## 9. 不使用的技術（刻意排除）
+## 10. 不使用的技術（刻意排除）
 
 | 技術 | 原因 |
 |------|------|
@@ -370,3 +498,4 @@ consult 的業務 payload 採固定 JSON 結構：
 | Message Queue | 小專案，不需要非同步訊息傳遞，有需求再議 |
 | 高流量設計 | 公司內部使用，不需要 cache、load balancer 等 |
 | 微服務 | 單體應用即可，所有模組在同一個 Spring Boot 內 |
+| Source Strategy Pattern | 已移除，改為依 builderId 統一查詢，新增 scenario 只需加 DB 資料 |

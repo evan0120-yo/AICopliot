@@ -1,71 +1,125 @@
 # Source Module - PRD
 
 ## Overview
-Source 模組負責管理與提供結構化資料，作為 Builder 取得系統資料的統一介面。根據 `group_code + type_code` 回傳對應的 scenario baseline，並透過 mapping table 指定需要額外從 RAG 取得的文件。
+Source 模組是 **prompt 組裝的主體**，管理所有 prompt 片段的內容、分類與排序。Builder 依 `builderId` 從 Source 載入所有 prompt 片段，按區域分類（type）與排序（orderNo）拼接成完整 prompt。
+
+Source 取代了原本的三張表（scenario config + reference items + rag mapping），統一為一張 `rb_source` 表 + 一張可配置的 `rb_source_type` 分類表。
 
 ## Responsibilities
-- 根據 `group_code + type_code` 回傳對應的結構化資料
-- 管理 scenario summary / reference items / Source→RAG mapping
-- 透過 mapping table 告知 Builder 需要額外取得哪些 RAG 文件
-- 管理活動相關的結構化資料（活動設定、玩法參數、歷史工時紀錄等）
-- 管理開發相關的結構化資料（工時紀錄、功能模組清單等）
+- 依 `builderId` 回傳該 builder 的所有 prompt 片段
+- 管理 prompt 片段的區域分類（PINNED / CHECK / CONTENT 等）
+- 管理 prompt 片段的排序（type sort_priority + source order_no）
+- 標記每個 prompt 片段是否需要 RAG 補充（`needs_rag_supplement`）
+- 管理區域分類的定義（`rb_source_type`，可配置新增）
 
-## Data Structure
-每個 scenario 對應的回傳資料包含：
-```
-{
-  "group": 1,
-  "type": 1,
-  "summary": "工時估算及建議",
-  "referenceItems": [
-    {
-      "itemName": "需求拆解與確認",
-      "referenceContent": "...",
-      "suggestion": "..."
-    }
-  ],
-  "ragKeys": ["pm-estimate-response-contract", "pm-estimate-feature-breakdown"]
-}
+## Data Model
+
+### rb_source_type（區域分類定義表）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| type_id | INTEGER (PK) | 主鍵 |
+| type_code | VARCHAR (UNIQUE) | 代碼，例如 `"PINNED"`、`"CHECK"`、`"CONTENT"` |
+| type_name | VARCHAR | 顯示名稱 |
+| description | VARCHAR | 說明 |
+| sort_priority | INTEGER | 類別排序，越小越前 |
+
+初期預設值：
+
+| type_code | type_name | sort_priority | 用途 |
+|-----------|-----------|---------------|------|
+| PINNED | 置頂類 | 1 | 安全規則、角色設定等永遠置頂的 prompt |
+| CHECK | 檢查類 | 2 | 附件處理規則、格式驗證等檢查項 |
+| CONTENT | 內文類 | 3 | 主要業務邏輯 prompt（執行流程、回應格式等） |
+
+未來可自由新增，例如：
+- `FOOTER`（尾段類）→ sort_priority=4
+- `EXAMPLE`（範例類）→ sort_priority=5
+
+### rb_source（Prompt 片段主表）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| source_id | BIGINT (PK, auto) | 主鍵 |
+| builder_id | INTEGER (FK → rb_builder_config) | 屬於哪個 builder |
+| type_id | INTEGER (FK → rb_source_type) | 區域分類 |
+| prompts | TEXT | prompt 內容 |
+| order_no | INTEGER | 同 type 內排序 |
+| needs_rag_supplement | BOOLEAN | 是否需要 RAG 補充 |
+
+## 查詢邏輯
+
+### SourceQueryService.loadByBuilderId(builderId)
+
+```sql
+SELECT s.*, st.type_code, st.sort_priority
+FROM rb_source s
+JOIN rb_source_type st ON s.type_id = st.type_id
+WHERE s.builder_id = :builderId
+ORDER BY st.sort_priority ASC, s.order_no ASC
 ```
 
-目前資料表切分為：
-- `rb_source_scenario_config`
-  - 每個 scenario 一筆 summary
-- `rb_source_reference_item`
-  - 每個 scenario 多筆結構化參考項，含 `sort_order`
-- `rb_source_rag_mapping`
-  - 每個 scenario 對多份 RAG 文件的 mapping，含 `sort_order`
+回傳 `List<SourceEntryDto>`，每個 entry 包含：
+
+```java
+record SourceEntryDto(
+    Long sourceId,
+    String typeCode,
+    String prompts,
+    Integer orderNo,
+    boolean needsRagSupplement
+)
+```
+
+### 排序規則
+1. 先按 `source_type.sort_priority` 排（PINNED=1 → CHECK=2 → CONTENT=3）
+2. 再按 `source.order_no` 排（同 type 內的順序）
+
+### 範例：builderId=1（PM 工時估算）的 Source 排列
+
+```
+[PINNED, order=1] 安全檢查規則（needs_rag=false）
+[PINNED, order=2] 角色設定（needs_rag=false）
+[CHECK,  order=1] 附件處理規則（needs_rag=false）
+[CONTENT,order=1] 執行流程 prompts（needs_rag=true）
+[CONTENT,order=2] 回應契約 prompts（needs_rag=true）
+[CONTENT,order=3] 功能拆解參考資料（needs_rag=true）
+```
+
+### 範例：builderId=2（QA 冒煙測試）的 Source 排列
+
+```
+[PINNED, order=1] 安全檢查規則（needs_rag=false）
+[PINNED, order=2] 角色設定（needs_rag=false）
+[CHECK,  order=1] 附件處理規則（needs_rag=false）
+[CONTENT,order=1] 執行流程 prompts（needs_rag=true）
+[CONTENT,order=2] 回應契約 prompts（needs_rag=true）
+[CONTENT,order=3] 結構規則 prompts（needs_rag=true）
+[CONTENT,order=4] XLSX 欄位規則（needs_rag=true）
+```
 
 ## Scope
-- **In Scope**: 結構化資料查詢、scenario summary、reference items、RAG mapping、資料 CRUD
-- **Out of Scope**: 非結構化文件檢索（RAG 負責）、prompt 組裝（Builder 負責）
+- **In Scope**: prompt 片段管理、區域分類管理、排序查詢、needs_rag_supplement 標記
+- **Out of Scope**: RAG 補充資料查詢（RAG 模組負責）、prompt 拼接組裝（Builder 負責）
 
 ## Interface
-- **Input**: group_code + type_code，來自 Builder
-- **Output**: 結構化資料 + ragKeys[]
+- **Input**: builderId，來自 Builder UseCase
+- **Output**: `List<SourceEntryDto>`（已排序的 prompt 片段清單）
 
 ## Dependencies
 - PostgreSQL Database
 
-## Design Pattern: Strategy
-採用 Strategy Pattern 而非 Factory Pattern：
-```
-Source
-├── SourceStrategy (interface)
-│     ├ supports(group, type)
-│     └ query(group, type) → SourceResult
-├── DevEstimateStrategy    (group=1, type=1)
-├── QaSmokeDocStrategy     (group=2, type=2)
-├── [未來新增 Strategy]     (group=?, type=?, ...)
-└── SourceService          (根據 scenario 分派對應 strategy)
-```
-- 每新增一個團隊任務，只需新增一個 Strategy class
-- SourceService 統一對外，Builder 不需知道內部有幾種 strategy
+## Design Change from Previous Architecture
+
+| 面向 | 舊架構 | 新架構 |
+|------|--------|--------|
+| 資料表 | 三張表（scenario config + reference items + rag mapping） | 一張主表 `rb_source` + 一張分類表 `rb_source_type` |
+| 查詢路由 | `group_code + type_code` + Strategy Pattern | `builderId` 單一查詢，不需 Strategy |
+| 擴充方式 | 每新增 scenario 需寫一個 Strategy class | 只需新增 DB 資料 |
+| 與 RAG 的關係 | 透過 `rb_source_rag_mapping` 間接關聯 | 透過 `needs_rag_supplement` flag，RAG 直接掛在 Source 下 |
 
 ## Notes
-- 與 RAG 的區分：RAG 處理非結構化文件（SA 文件、開發文件），Source 處理結構化資料（DB records、設定檔）
-- ragKeys 欄位不是寫死在 config csv，而是來自 `rb_source_rag_mapping`，讓 Source 可以精確指定需要哪些 RAG 文件來補充上下文
-- Source 提供的資料是給 AI 消化用的，AI 會轉譯為產品語言回覆 PM，PM 不會直接看到 Source 的原始資料
-- 目前正式支援：
-  - `group=1`, `type=1`：產品經理 / 工時估算
-  - `group=2`, `type=2`：測試團隊 / 生成冒煙測試
+- Source 不再需要 Strategy Pattern，所有 builder 用同一套查詢邏輯
+- 新增 scenario 只需在 DB 新增 Source 資料，不需改 code
+- Source 提供的 prompt 是給 AI 消化用的，AI 會轉譯為使用者看得懂的語言回覆
+- 區域分類（rb_source_type）存 DB，可自由配置新增，不是寫死的 enum

@@ -1,8 +1,10 @@
 package com.citrus.rewardbridge.source.service.query;
 
 import com.citrus.rewardbridge.common.exception.BusinessException;
-import com.citrus.rewardbridge.source.dto.SourceResult;
-import com.citrus.rewardbridge.source.service.query.strategy.SourceStrategy;
+import com.citrus.rewardbridge.source.dto.SourceEntryDto;
+import com.citrus.rewardbridge.source.dto.SourceLoadResult;
+import com.citrus.rewardbridge.source.entity.SourceEntity;
+import com.citrus.rewardbridge.source.repository.SourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,18 +19,29 @@ public class SourceQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(SourceQueryService.class);
 
-    private final List<SourceStrategy> sourceStrategies;
+    private final SourceRepository sourceRepository;
 
-    public SourceResult query(Integer group, Integer type) {
-        log.info("Querying source data. group={}, type={}, strategyCount={}", group, type, sourceStrategies.size());
-        return sourceStrategies.stream()
-                .filter(strategy -> strategy.supports(group, type))
-                .findFirst()
-                .map(strategy -> strategy.query(group, type))
-                .orElseThrow(() -> new BusinessException(
-                        "SOURCE_STRATEGY_NOT_FOUND",
-                        "No source strategy supports the requested consult scenario.",
-                        HttpStatus.BAD_REQUEST
-                ));
+    public SourceLoadResult loadByBuilderId(Integer builderId) {
+        List<SourceEntity> entities = sourceRepository.findAllByBuilderIdOrdered(builderId);
+        if (entities.isEmpty()) {
+            throw new BusinessException(
+                    "SOURCE_ENTRIES_NOT_FOUND",
+                    "No source prompt entries were found for the requested builder.",
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+
+        List<SourceEntryDto> entries = entities.stream()
+                .map(entity -> new SourceEntryDto(
+                        entity.getSourceId(),
+                        entity.getSourceType().getTypeCode(),
+                        entity.getPrompts(),
+                        entity.getOrderNo(),
+                        entity.isNeedsRagSupplement()
+                ))
+                .toList();
+
+        log.info("Loaded source entries for builder. builderId={}, entryCount={}", builderId, entries.size());
+        return new SourceLoadResult(builderId, entries);
     }
 }

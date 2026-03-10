@@ -1,8 +1,8 @@
 package com.citrus.rewardbridge.gatekeeper.service.guard;
 
 import com.citrus.rewardbridge.common.config.RewardBridgeProperties;
+import com.citrus.rewardbridge.common.repository.BuilderConfigRepository;
 import com.citrus.rewardbridge.common.exception.BusinessException;
-import com.citrus.rewardbridge.common.scenario.ConsultScenario;
 import com.citrus.rewardbridge.gatekeeper.dto.ConsultGuardResult;
 import com.citrus.rewardbridge.gatekeeper.dto.ConsultRequest;
 import com.citrus.rewardbridge.output.dto.OutputFormat;
@@ -17,46 +17,43 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ConsultGuardService {
 
     private static final Logger log = LoggerFactory.getLogger(ConsultGuardService.class);
-    private static final int DEFAULT_GROUP = 1;
     private static final Set<String> SUPPORTED_FILE_EXTENSIONS = Set.of(
             "pdf", "doc", "docx",
             "jpg", "jpeg", "png", "webp", "gif", "bmp"
     );
 
     private final RewardBridgeProperties rewardBridgeProperties;
+    private final BuilderConfigRepository builderConfigRepository;
 
     public ConsultGuardResult guard(ConsultRequest request, String clientIp) {
-        Integer group = normalizeGroup(request.getGroup());
+        Integer builderId = request.getBuilderId();
         OutputFormat outputFormat = normalizeOutputFormat(request.getOutputFormat());
         long actualFileCount = countActualFiles(request.getFiles());
         log.info(
-                "Starting consult guard validation. clientIp={}, group={}, type={}, outputFormat={}, fileCount={}",
+                "Starting consult guard validation. clientIp={}, builderId={}, outputFormat={}, fileCount={}",
                 clientIp,
-                group,
-                request.getType(),
+                builderId,
                 describeOutputFormat(outputFormat),
                 actualFileCount
         );
 
         validateClientIp(clientIp);
-        validateScenario(group, request.getType());
+        validateBuilder(builderId);
         validateFiles(request.getFiles());
 
         log.info(
-                "Consult guard validation passed. clientIp={}, group={}, type={}, outputFormat={}",
+                "Consult guard validation passed. clientIp={}, builderId={}, outputFormat={}",
                 clientIp,
-                group,
-                request.getType(),
+                builderId,
                 describeOutputFormat(outputFormat)
         );
-        return new ConsultGuardResult(group, request.getType(), outputFormat);
+        return new ConsultGuardResult(builderId, outputFormat);
     }
 
     private void validateClientIp(String clientIp) {
@@ -70,23 +67,23 @@ public class ConsultGuardService {
         // TODO: enforce IP allowlist / blocklist when PM rollout requires network-level validation.
     }
 
-    private void validateScenario(Integer group, Integer type) {
-        if (ConsultScenario.fromCodes(group, type).isEmpty()) {
-            log.warn("Consult guard rejected request because scenario is unsupported. group={}, type={}", group, type);
-            String supported = Arrays.stream(ConsultScenario.values())
-                    .map(s -> "group=%d with type=%d".formatted(s.groupCode(), s.typeCode()))
-                    .collect(Collectors.joining(", "));
-            throw new BusinessException(
-                    "UNSUPPORTED_SCENARIO",
-                    "Unsupported scenario. Currently supported: " + supported,
-                    HttpStatus.BAD_REQUEST
-            );
+    private void validateBuilder(Integer builderId) {
+        if (builderId == null) {
+            log.warn("Consult guard rejected request because builderId is missing.");
+            throw new BusinessException("BUILDER_ID_MISSING", "builderId is required.", HttpStatus.BAD_REQUEST);
         }
 
-        log.info(
-                "Scenario validation passed. scenario={}",
-                ConsultScenario.fromCodes(group, type).map(ConsultScenario::displayName).orElse("unknown")
-        );
+        builderConfigRepository.findById(builderId)
+                .ifPresentOrElse(builderConfig -> {
+                    if (!builderConfig.isActive()) {
+                        log.warn("Consult guard rejected request because builder is inactive. builderId={}", builderId);
+                        throw new BusinessException("BUILDER_INACTIVE", "Requested builder is inactive.", HttpStatus.FORBIDDEN);
+                    }
+                    log.info("Builder validation passed. builderId={}, builderCode={}", builderId, builderConfig.getBuilderCode());
+                }, () -> {
+                    log.warn("Consult guard rejected request because builder does not exist. builderId={}", builderId);
+                    throw new BusinessException("BUILDER_NOT_FOUND", "Requested builder does not exist.", HttpStatus.BAD_REQUEST);
+                });
     }
 
     private void validateFiles(List<MultipartFile> files) {
@@ -193,13 +190,6 @@ public class ConsultGuardService {
         return files.stream()
                 .filter(file -> file != null && !file.isEmpty())
                 .count();
-    }
-
-    private Integer normalizeGroup(Integer group) {
-        if (group == null) {
-            return DEFAULT_GROUP;
-        }
-        return group;
     }
 
     private OutputFormat normalizeOutputFormat(String outputFormat) {

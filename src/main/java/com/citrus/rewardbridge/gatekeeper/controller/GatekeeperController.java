@@ -36,11 +36,10 @@ public class GatekeeperController {
             HttpServletRequest httpServletRequest
     ) {
         log.info(
-                "Received consult request. method={}, uri={}, group={}, type={}, outputFormat={}, textLength={}, file={}",
+                "Received consult request. method={}, uri={}, builderId={}, outputFormat={}, textLength={}, file={}",
                 httpServletRequest.getMethod(),
                 httpServletRequest.getRequestURI(),
-                request.getGroup(),
-                request.getType(),
+                request.getBuilderId(),
                 request.getOutputFormat(),
                 request.getText() == null ? 0 : request.getText().length(),
                 describeFiles(request.getFiles())
@@ -50,7 +49,7 @@ public class GatekeeperController {
         log.info("Resolved client IP for consult request. clientIp={}", clientIp);
 
         RenderedOutput response = gatekeeperCommandUseCase.consult(request, clientIp);
-        log.info("Consult request completed in Gatekeeper controller. clientIp={}, type={}", clientIp, request.getType());
+        log.info("Consult request completed in Gatekeeper controller. clientIp={}, builderId={}", clientIp, request.getBuilderId());
         return toHttpResponse(response);
     }
 

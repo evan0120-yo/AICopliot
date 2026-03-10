@@ -1,6 +1,7 @@
 package com.citrus.rewardbridge.output.service.command.renderer;
 
 import com.citrus.rewardbridge.common.dto.ConsultBusinessResponse;
+import com.citrus.rewardbridge.common.entity.BuilderConfigEntity;
 import com.citrus.rewardbridge.output.dto.OutputFormat;
 import com.citrus.rewardbridge.output.dto.OutputRenderCommand;
 import com.citrus.rewardbridge.output.dto.RenderedFile;
@@ -29,8 +30,7 @@ class XlsxRendererTest {
                 """;
 
         RenderedFile file = renderer.render(new OutputRenderCommand(
-                2,
-                2,
+                new BuilderConfigEntity(2, "qa-smoke-doc", "測試團隊", "QA 冒煙測試", "生成冒煙測試", true, "xlsx", "qa-smoke-doc", true),
                 OutputFormat.XLSX,
                 new ConsultBusinessResponse(true, "", response, null)
         ));
