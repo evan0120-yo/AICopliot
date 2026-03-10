@@ -1,0 +1,43 @@
+server:
+  servlet:
+    context-path: ${server.servlet.context-path}
+  port: ${server.port}
+     
+spring:
+  main:
+    keep-alive: true
+  profiles:
+    active: local
+  threads:
+    virtual:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
+  datasource:
+     driver-class-name: org.postgresql.Driver
+     url: ${spring.datasource.url}
+     username: ${spring.datasource.username}
+     password: ${spring.datasource.password}
+  jpa:
+    open-in-view: false
+    show-sql: ${spring.jpa.properties.hibernate.show_sql}
+    properties:
+      hibernate:
+        format_sql: false
+    hibernate: 
+      ddl-auto: ${spring.jpa.hibernate.ddl-auto}
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+  base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+
+rewardbridge:
+  consult:
+    max-files: 10
+    max-file-size-bytes: 20971520
+    max-total-size-bytes: 52428800
+  ai:
+    models:
+      consult: ${REWARDBRIDGE_AI_MODEL_CONSULT:gpt-4o}
