@@ -11,6 +11,7 @@ Source 取代了原本的三張表（scenario config + reference items + rag map
 - 管理 prompt 片段的排序（type sort_priority + source order_no）
 - 標記每個 prompt 片段是否需要 RAG 補充（`needs_rag_supplement`）
 - 管理區域分類的定義（`rb_source_type`，可配置新增）
+- 接受 Builder Graph payload 中的 source 定義，並轉成 `rb_source` 可落庫的結構
 
 ## Data Model
 
@@ -46,6 +47,53 @@ Source 取代了原本的三張表（scenario config + reference items + rag map
 | prompts | TEXT | prompt 內容 |
 | order_no | INTEGER | 同 type 內排序 |
 | needs_rag_supplement | BOOLEAN | 是否需要 RAG 補充 |
+
+### 後台編輯器對應欄位
+
+後台 graph JSON 中，每個 source 建議長這樣：
+
+```json
+{
+  "typeCode": "CONTENT",
+  "orderNo": 2,
+  "prompts": "請依照以下流程完成分析",
+  "rag": [
+    {
+      "ragType": "execution_steps",
+      "title": "執行流程",
+      "content": "...",
+      "orderNo": 1,
+      "overridable": false,
+      "retrievalMode": "full_context"
+    }
+  ]
+}
+```
+
+Mapping 規則：
+- `typeCode` → `rb_source_type.type_code`
+- `orderNo` → `rb_source.order_no`
+- `prompts` → `rb_source.prompts`
+- `rag.length > 0` → `rb_source.needs_rag_supplement = true`
+- `rag.length = 0` → `rb_source.needs_rag_supplement = false`
+
+`orderNo` 規則：
+- `source.orderNo` 若有傳值，必須是正整數
+- `rag.orderNo` 若有傳值，必須是正整數
+- 若未傳值，後端才會依同 type / 同 source 內已使用號碼自動補位
+
+`typeCode` 的作用不是顯示用標籤，而是決定 source 屬於哪一個 prompt 區塊，並參與最終排序：
+- `PINNED`：固定最前面的規則，例如安全規則、角色設定
+- `CHECK`：檢查類規則，例如附件處理與格式限制
+- `CONTENT`：主要業務內容
+
+因此 source 的最終 canonical 排序不是只看 `orderNo`，而是：
+1. 先看 `typeCode` 對應的 `sort_priority`
+2. 再看同 type 內的 `orderNo`
+
+若前端送的是精簡 payload，後端可補預設值：
+- `typeCode` 未傳 → `CONTENT`
+- `rag` 未傳 → `[]`
 
 ## 查詢邏輯
 
@@ -123,3 +171,4 @@ record SourceEntryDto(
 - 新增 scenario 只需在 DB 新增 Source 資料，不需改 code
 - Source 提供的 prompt 是給 AI 消化用的，AI 會轉譯為使用者看得懂的語言回覆
 - 區域分類（rb_source_type）存 DB，可自由配置新增，不是寫死的 enum
+- 後台畫布中的每個大區塊，本質上都是一筆 Source；drag-and-drop 只是編輯方式，不是新的後端資料模型

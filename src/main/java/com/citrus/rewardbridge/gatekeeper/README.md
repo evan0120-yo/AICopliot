@@ -6,6 +6,7 @@ Gatekeeper 是系統的 HTTP 入口與驗證預留層，負責接收 internal co
 初期不實作正式登入驗證，但必須先把未來驗證插點留好，尤其是 **client IP 驗證**。
 
 ## Responsibilities
+- 提供 builder 下拉資料 API：`GET /api/builders`
 - 提供 consult API 入口：`POST /api/consult`
 - 接收 internal user 的文字提問與上傳的多個附件
 - 從 HTTP request 解析 client IP，作為未來驗證依據
@@ -20,6 +21,51 @@ Gatekeeper 是系統的 HTTP 入口與驗證預留層，負責接收 internal co
   - token / API key
   - rate limiting
 - 將驗證通過的請求（text + 多附件 + builderId + outputFormat + clientIp）傳遞給 Builder
+
+## Builder List API
+前端首頁或側邊欄需要先取得可用的 builder 清單，用於渲染下拉選單或導覽列表。
+
+### API Contract
+
+```text
+GET /api/builders
+Accept: application/json
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "builderId": 1,
+      "builderCode": "pm-estimate",
+      "groupLabel": "產品經理",
+      "name": "PM 工時估算與建議",
+      "description": "協助 PM 針對需求做工時估算、拆解與風險說明。",
+      "includeFile": false,
+      "defaultOutputFormat": null
+    },
+    {
+      "builderId": 2,
+      "builderCode": "qa-smoke-doc",
+      "groupLabel": "測試團隊",
+      "name": "QA 冒煙測試文件產生",
+      "description": "協助 QA 依需求快速產出可轉成 xlsx 的冒煙測試案例。",
+      "includeFile": true,
+      "defaultOutputFormat": "xlsx"
+    }
+  ],
+  "error": null
+}
+```
+
+### Rules
+- 只回傳 `active=true` 的 builder
+- 依 `builderId ASC` 排序
+- `description` 由 `rb_builder_config.description` 提供，作為前端下拉補充說明
+- `includeFile` 與 `defaultOutputFormat` 可供前端決定是否顯示輸出格式選單
 
 ## Input Format
 前端送進來的請求包含：
@@ -60,7 +106,7 @@ files=<optional attachment 2>
 - `outputFormat = markdown | xlsx`
 
 ## Scope
-- **In Scope**: API 入口、client IP 解析、builderId 驗證、檔案格式驗證、附件 passthrough
+- **In Scope**: builder list API、consult API 入口、client IP 解析、builderId 驗證、檔案格式驗證、附件 passthrough
 - **Out of Scope**: 業務邏輯、prompt 組裝、AI 呼叫、檔案內容解析
 
 ## Interface
@@ -89,6 +135,7 @@ files=<optional attachment 2>
 
 ## Dependencies
 - BuilderConfigRepository（查詢 `rb_builder_config`，放在 common 模組）
+- Builder Query UseCase（提供前端 builder 下拉資料）
 - Builder UseCase（同程序內呼叫）
 
 ## Notes

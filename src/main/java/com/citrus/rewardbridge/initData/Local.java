@@ -174,7 +174,19 @@ public class Local implements ApplicationRunner {
     }
 
     private void saveBuilderConfig(BuilderConfigEntity builderConfigEntity) {
-        if (builderConfigRepository.existsById(builderConfigEntity.getBuilderId())) {
+        Optional<BuilderConfigEntity> existing = builderConfigRepository.findById(builderConfigEntity.getBuilderId());
+        if (existing.isPresent()) {
+            BuilderConfigEntity current = existing.get();
+            current.setBuilderCode(builderConfigEntity.getBuilderCode());
+            current.setGroupLabel(builderConfigEntity.getGroupLabel());
+            current.setName(builderConfigEntity.getName());
+            current.setDescription(builderConfigEntity.getDescription());
+            current.setIncludeFile(builderConfigEntity.isIncludeFile());
+            current.setDefaultOutputFormat(builderConfigEntity.getDefaultOutputFormat());
+            current.setFilePrefix(builderConfigEntity.getFilePrefix());
+            current.setActive(builderConfigEntity.isActive());
+            builderConfigRepository.save(current);
+            log.info("Synchronized builder config. builderId={}, builderCode={}", current.getBuilderId(), current.getBuilderCode());
             return;
         }
         builderConfigRepository.save(builderConfigEntity);

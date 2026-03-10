@@ -201,9 +201,10 @@ Builder（編排中心）
 
 ### 4.2 Builder
 - **職責**: 核心編排中心，依 builderId 載入 Source + RAG 組裝 prompt
-- **設計**: 資料驅動 prompt 組裝 + Override Factory 處理覆蓋邏輯
+- **設計**: 資料驅動 prompt 組裝 + Override Factory 處理覆蓋邏輯 + Builder Graph JSON 儲存
 - **依賴**: Source、RAG、AIClient、Output
 - **關鍵流程**: 載入 builder config → 載入 Source（排序）→ 撈 RAG supplement → Override Factory → 送 AI → Output 渲染
+- **後台編輯方向**: 先做後端 `save/load graph` API，讓前端未來不論是表單或拖拉畫布，都只需要送同一份 JSON
 - **詳細 PRD**: [builder/README.md](src/main/java/com/citrus/rewardbridge/builder/README.md)
 
 ### 4.3 Source
@@ -304,6 +305,20 @@ Builder（編排中心）
 ### API Contract
 
 ```text
+GET /api/builders
+Accept: application/json
+```
+
+回傳前端 builder 下拉與導覽用的 active 清單，欄位包含：
+- `builderId`
+- `builderCode`
+- `groupLabel`
+- `name`
+- `description`
+- `includeFile`
+- `defaultOutputFormat`
+
+```text
 POST /api/consult
 Content-Type: multipart/form-data
 
@@ -313,6 +328,113 @@ text=請協助評估這個活動需求的工時與風險
 files=<optional attachment 1>
 files=<optional attachment 2>
 ```
+
+```text
+PUT /api/admin/builders/{builderId}/graph
+Content-Type: application/json
+```
+
+提供後台 prompt 編輯器使用的儲存入口。初期後端只需收到一份能清楚描述 Builder / Source / RAG 結構的 JSON，再由後端負責轉成既有資料表。
+
+官方 canonical shape 以 `sources[]` 為準。若前端早期實驗曾使用 `aiagent[] -> source` 形狀，後端可暫時相容接收，但 `GET /graph` 一律回 `sources[]`。
+
+`PUT /graph` 目前只代表「更新既有 builder graph」。若 `{builderId}` 不存在，後端應回 `404 BUILDER_NOT_FOUND`，不在這支 API 內隱式建立新 builder。
+
+```json
+{
+  "builder": {
+    "builderCode": "qa-smoke-doc",
+    "groupLabel": "測試團隊",
+    "name": "QA 冒煙測試文件產生",
+    "description": "協助 QA 快速產出冒煙測試案例",
+    "includeFile": true,
+    "defaultOutputFormat": "xlsx",
+    "filePrefix": "qa-smoke-doc",
+    "active": true
+  },
+  "sources": [
+    {
+      "typeCode": "PINNED",
+      "orderNo": 1,
+      "prompts": "你現在負責安全檢查...",
+      "rag": []
+    },
+    {
+      "typeCode": "CONTENT",
+      "orderNo": 2,
+      "prompts": "請依照以下流程完成分析",
+      "rag": [
+        {
+          "ragType": "execution_steps",
+          "title": "執行流程",
+          "content": "1. 先做安全檢查...",
+          "orderNo": 1,
+          "overridable": false,
+          "retrievalMode": "full_context"
+        },
+        {
+          "ragType": "default_content",
+          "title": "預設內容",
+          "content": "若前端沒給需求，請先產出 default draft",
+          "orderNo": 2,
+          "overridable": true,
+          "retrievalMode": "full_context"
+        }
+      ]
+    }
+  ]
+}
+```
+
+```text
+GET /api/admin/builders/{builderId}/graph
+Accept: application/json
+```
+
+提供後台 prompt 編輯器使用的載入入口，回傳同一份 graph JSON，作為前端畫布或表單的 source of truth。
+
+### Graph Save Rules
+- graph JSON 是後台編輯器的唯一儲存格式；前端之後不論是表單編輯還是拖拉畫布，最終都只送這一份結構
+- 官方 canonical shape 是 `sources[]`
+- `builder` 對應 `rb_builder_config`
+- `sources[]` 對應 `rb_source`
+- `source.rag[]` 對應 `rb_rag_supplement`
+- `typeCode` 對應 `rb_source_type.type_code`；後端依 `typeCode` 反查 `typeId`
+- `typeCode` 的作用是決定 prompt 區塊屬於哪一類，並參與最終排序：
+  - `PINNED`: 最前面的固定規則，例如安全規則、角色設定
+  - `CHECK`: 檢查類規則，例如附件處理與格式限制
+  - `CONTENT`: 主要業務內容
+- graph 的最終 canonical 排序應與 consult 組 prompt 一致，也就是先依 `typeCode` 對應的 `sort_priority`，再依 `orderNo`
+- `source.orderNo` 與 `rag.orderNo` 若有傳值，必須是正整數；未傳時才由後端自動補不衝突的順序
+- 初期紅框 `text` 不另外建立資料表節點；沿用現行 `overridable=true` 的 RAG 表示「這段預設內容可被前端 text 覆蓋」
+- `PUT /graph` 的實作策略以「整個 builder graph 交易式重存」為主：
+  1. 更新既有 `rb_builder_config`
+  2. 刪除該 builder 既有 `rb_rag_supplement`
+  3. 刪除該 builder 既有 `rb_source`
+  4. 依 payload 順序重建 source 與 rag
+- 後端可接受精簡 payload，但 `builder` 與 `sources/rag` 的處理語意不同：
+  - `builder` 區塊採 merge 語意：
+    - 未提供欄位時，優先保留既有 builder 值
+    - 只有既有值本身為空時，才會回落到系統預設值
+    - 例如：
+      - `builder.description` 未提供 → 保留既有值
+      - `builder.includeFile` 未提供 → 保留既有值，若既有也沒有才預設 `false`
+      - `builder.active` 未提供 → 保留既有值，若既有也沒有才預設 `true`
+  - `sources[]` / `source.rag[]` 區塊採 replace 語意：
+    - payload 內沒出現的 source / rag 會在重存時被刪除
+    - `source.typeCode` 未傳 → `CONTENT`
+    - `rag.overridable` 未傳 → `false`
+    - `rag.retrievalMode` 未傳 → `"full_context"`
+- 文字欄位若傳空字串 `""`，目前視為「未提供新值」：
+  - 不會主動清空既有 `description`
+  - 不會主動清空既有 `filePrefix`
+  - 若要支援清空欄位，需另外定義明確規則，不以空字串隱式表示
+- `GET/PUT /api/admin/builders/{builderId}/graph` 屬於高風險後台寫入介面，正式環境應補管理權限保護
+- 目前階段先以內網開發與快速驗證為優先，暫不處理 admin graph API 的資安 / 權限控管
+- 上線前需回頭補齊：
+  - admin API 身分驗證
+  - 角色或 allowlist 控制
+  - 操作審計 / 修改紀錄
 
 ### Output Rules
 - consult API 一律回 JSON，前端永遠拿得到 `response` 文字內容
@@ -329,6 +451,11 @@ files=<optional attachment 2>
 - `builderId=1`：產品經理 / 工時估算
 - `builderId=2`：測試團隊 / 生成冒煙測試
 
+### Builder List Source of Truth
+- builder 下拉資料來自 `rb_builder_config`
+- `description` 存在 `rb_builder_config.description`
+- local seed 由 `initData/Local.java` 維護，需保證為繁體中文可讀描述
+
 ### AI 回覆原則
 - AI 仍應以對應使用者看得懂的語言回答
 - PM 場景聚焦在工時預估、可行性、建議方向、風險提醒
@@ -342,30 +469,28 @@ files=<optional attachment 2>
 依照依賴關係由底層往上開發：
 
 ```
-Phase 1 — 資料層重建
-  ├─ 建立新 Entity + Repository（BuilderConfig, SourceType, Source, RagSupplement）
-  └─ 重寫 initData/Local.java 塞 seed data
+Phase 1 — Builder Graph 儲存 API
+  ├─ 定義 `PUT /api/admin/builders/{builderId}/graph`
+  ├─ 定義 `GET /api/admin/builders/{builderId}/graph`
+  ├─ 定義 graph request/response DTO
+  └─ 明確規範 builder/source/rag 的預設值補齊邏輯
 
-Phase 2 — Source / RAG 模組重寫
-  ├─ SourceQueryService 改為依 builderId 查詢 + 排序
-  └─ RagQueryService 改為依 sourceId 查詢
+Phase 2 — Graph 落庫實作
+  ├─ upsert `rb_builder_config`
+  ├─ 依 typeCode 解析 `rb_source_type`
+  ├─ transaction 內重建 `rb_source`
+  └─ transaction 內重建 `rb_rag_supplement`
 
-Phase 3 — Builder 模組重寫
-  ├─ BuilderCommandUseCase 主流程重寫（資料驅動 prompt 組裝）
-  ├─ BuilderCommandService prompt 組裝改為 Source 排序拼接
-  └─ 新增 BuilderOverrideFactory 工廠模式
+Phase 3 — Consult 主流程對齊
+  ├─ 保持 consult 仍走既有 builder/source/rag 查詢
+  ├─ 維持 Override Factory 規則
+  └─ 紅框 text 初期沿用 `overridable=true` 的 RAG 語意，不先新增新表
 
-Phase 4 — Gatekeeper / Output 適配
-  ├─ ConsultRequest 改 builderId
-  ├─ Guard 改驗 builderId
-  └─ Output policy 改讀 builder config 表
+Phase 4 — 前端編輯器接入
+  ├─ 前端先用表單或簡單 JSON editor 驗證 save/load graph
+  └─ drag-and-drop 畫布等 UI 後做，不先反推資料模型
 
-Phase 5 — 清理
-  ├─ 刪除 ConsultScenario / ConsultGroupCode / ConsultTypeCode enum
-  ├─ 刪除舊 Source 三張表 entity + repository + strategy
-  └─ 刪除舊 RAG entity + repository
-
-Phase 6 — 驗證
+Phase 5 — 驗證
   └─ mvnw -DskipTests package 確認編譯通過
 ```
 
@@ -459,3 +584,17 @@ Phase 6 — 驗證
 - RAG 的 `overridable` flag 配合 Override Factory 使用
 - RAG 預留 `retrieval_mode` 欄位，未來可 per-source 切換 full_context / vector_search
 - 向量檢索切換時 Builder 不需改動，只改 RAG 內部邏輯
+
+### 10.8 Builder 下拉 API 決策（2026-03-10）
+
+- 前端 builder 下拉不再寫死，改由 `GET /api/builders` 取得
+- builder 下拉的顯示說明來自 `rb_builder_config.description`
+- local seed 啟動時需同步 builder metadata，避免舊資料殘留造成 description 缺失
+
+### 10.9 Builder Graph Editor 決策（2026-03-10）
+
+- 先做後端 graph JSON 儲存 / 載入 API，再決定前端畫布長相
+- graph JSON 的核心結構是 `builder + sources[] + source.rag[]`
+- 後台編輯器的 source of truth 是 graph JSON，不是拖拉 UI 本身
+- 初期不為紅框 `text` 額外新增資料表節點；沿用 `overridable=true` 的 RAG 表示「可被前端 text 覆蓋的位置」
+- graph 儲存策略採 transaction 內整個 builder graph 重存，避免前端送 patch 帶來一致性問題

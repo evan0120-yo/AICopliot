@@ -1,5 +1,7 @@
 package com.citrus.rewardbridge.gatekeeper.controller;
 
+import com.citrus.rewardbridge.builder.dto.BuilderSummaryDto;
+import com.citrus.rewardbridge.builder.usecase.query.BuilderQueryUseCase;
 import com.citrus.rewardbridge.common.response.ApiResponse;
 import com.citrus.rewardbridge.gatekeeper.dto.ConsultRequest;
 import com.citrus.rewardbridge.gatekeeper.service.guard.ClientIpResolver;
@@ -12,11 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -29,6 +32,14 @@ public class GatekeeperController {
 
     private final GatekeeperCommandUseCase gatekeeperCommandUseCase;
     private final ClientIpResolver clientIpResolver;
+    private final BuilderQueryUseCase builderQueryUseCase;
+
+    @GetMapping("/builders")
+    public ResponseEntity<ApiResponse<List<BuilderSummaryDto>>> listBuilders() {
+        List<BuilderSummaryDto> builders = builderQueryUseCase.listActiveBuilders();
+        log.info("Returned active builders for frontend dropdown. builderCount={}", builders.size());
+        return ResponseEntity.ok(ApiResponse.success(builders));
+    }
 
     @PostMapping(value = "/consult", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> consult(

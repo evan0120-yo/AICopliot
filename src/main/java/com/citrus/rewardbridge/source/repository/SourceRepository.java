@@ -16,4 +16,6 @@ public interface SourceRepository extends JpaRepository<SourceEntity, Long> {
             order by st.sortPriority asc, s.orderNo asc, s.sourceId asc
             """)
     List<SourceEntity> findAllByBuilderIdOrdered(Integer builderId);
+
+    void deleteAllByBuilderId(Integer builderId);
 }
