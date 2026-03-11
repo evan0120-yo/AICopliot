@@ -43,6 +43,7 @@ class GatekeeperControllerTest {
                 new BuilderSummaryDto(
                         1,
                         "pm-estimate",
+                        "pm",
                         "產品經理",
                         "PM 工時估算與建議",
                         "協助 PM 針對需求做工時估算、拆解與風險說明。",
@@ -52,6 +53,7 @@ class GatekeeperControllerTest {
                 new BuilderSummaryDto(
                         2,
                         "qa-smoke-doc",
+                        "qa",
                         "測試團隊",
                         "QA 冒煙測試文件產生",
                         "協助 QA 依需求快速產出可轉成 xlsx 的冒煙測試案例。",

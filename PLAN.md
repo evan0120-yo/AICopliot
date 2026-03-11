@@ -404,6 +404,7 @@ Accept: application/json
   - `PINNED`: 最前面的固定規則，例如安全規則、角色設定
   - `CHECK`: 檢查類規則，例如附件處理與格式限制
   - `CONTENT`: 主要業務內容
+- `typeCode` 是後端內部欄位，前端正式給非工程師使用時不應直接暴露這三個選項；較佳做法是讓使用者先選 template，再由前端或後端自動映射到對應 `typeCode`
 - graph 的最終 canonical 排序應與 consult 組 prompt 一致，也就是先依 `typeCode` 對應的 `sort_priority`，再依 `orderNo`
 - `source.orderNo` 與 `rag.orderNo` 若有傳值，必須是正整數；未傳時才由後端自動補不衝突的順序
 - 初期紅框 `text` 不另外建立資料表節點；沿用現行 `overridable=true` 的 RAG 表示「這段預設內容可被前端 text 覆蓋」
@@ -598,3 +599,50 @@ Phase 5 — 驗證
 - 後台編輯器的 source of truth 是 graph JSON，不是拖拉 UI 本身
 - 初期不為紅框 `text` 額外新增資料表節點；沿用 `overridable=true` 的 RAG 表示「可被前端 text 覆蓋的位置」
 - graph 儲存策略採 transaction 內整個 builder graph 重存，避免前端送 patch 帶來一致性問題
+
+### 10.10 Builder Template 決策（2026-03-11）
+
+- `typeCode` 保留作為 Builder / Source 內部排序與區塊分類用途，不直接作為最終使用者的主操作欄位
+- 前端未來的「新增 Source」應改成 **Template Selector**：
+  - 使用者選擇「安全規則範本 / 附件處理範本 / 主要流程範本 / 空白區塊」
+  - 系統自動帶入對應 `prompts + rag[] + typeCode`
+- Template 與 Source 是不同概念：
+  - Template 是母版
+  - Source 是某個 Builder 內的實際副本
+  - 套用 Template 後，應複製為 Builder 自己的 source/rag，再讓使用者編輯
+- 不建議使用 `sourceId` 或特殊 `builderId` 來表達「default source」；應以獨立的 template domain 處理
+
+### 10.11 Template 資料模型方向（2026-03-11）
+
+建議新增：
+
+- `rb_source_template`
+  - `template_id`
+  - `template_key`
+  - `name`
+  - `description`
+  - `group_key` nullable
+  - `type_code`
+  - `prompts`
+  - `active`
+- `rb_rag_template`
+  - `template_rag_id`
+  - `template_id`
+  - `rag_type`
+  - `title`
+  - `content`
+  - `order_no`
+  - `overridable`
+
+### 10.12 Template Group 決策（2026-03-11）
+
+- template 需要 group 維度，以支援未來：
+  - 各團隊只看到自己的專用 template
+  - 同時可看到全公司共用公版
+- 規則建議：
+  - `group_key != null` → 群組專用 template
+  - `group_key = null` → 公版 template
+- 查詢行為建議：
+  - 取目前 builder 所屬 group 的 templates
+  - 再加上 `group_key = null` 的公版 templates
+- `group_label` 目前只用於顯示，不適合直接作為 template 關聯鍵；正式實作時應新增穩定的 `group_key` / `group_id`

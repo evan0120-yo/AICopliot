@@ -135,6 +135,7 @@ Accept: application/json
 
 ### Field Rules
 - `typeCode` 不是 prompt 內容，而是 source 的區塊分類鍵；它會決定 consult 組 prompt 時的排序層級
+- `typeCode` 是 **Builder 內部欄位**。它應保留在 graph JSON 與後端排序邏輯中，但前端給非工程師使用的編輯器不應直接暴露 `PINNED / CHECK / CONTENT` 下拉，而應改用「選範本 → 自動映射 typeCode」的方式操作
 - `GET /graph` 回傳的 source 順序應以 consult 真正使用的 canonical 順序為準：先看 `typeCode` 對應的 sort priority，再看 `orderNo`
 - `source.orderNo` 與 `rag.orderNo` 若有提供，必須是正整數；未提供時才由後端自動補不衝突的順序
 - `builder` 區塊採 merge 語意：
@@ -154,6 +155,47 @@ Accept: application/json
 - graph JSON 雖然最終分散落在 `builder/source/rag` 三張表，但它在語意上是一個完整的「builder 配方」
 - transaction、排序一致性、預設值補齊與 graph 驗證，應由 Builder 作為協調者負責
 - 前端未來不論是表單、JSON editor 或拖拉畫布，都不應直接理解資料表細節
+
+## Template Roadmap
+
+Builder Graph 的 `sources[]` 是「某個 builder 目前實際使用的配方副本」，它不等同於可重複套用的範本母版。
+
+未來若要支援「像 104 應徵一樣先選範本，再自動帶入 prompts + RAG」，建議新增獨立的 Template Domain，而不是把 `typeCode` 或 `sourceId` 直接拿來承擔範本語意。
+
+### 設計原則
+
+- `typeCode`：內部排序與 prompt 區塊用途，保留給 Builder / Source 模組
+- `template`：給使用者選取的預設樣本，用來快速建立 source/rag 草稿
+- `source`：builder 內實際存在、可被編輯的副本
+- template 套用後應複製成新的 source/rag；後續編輯的是副本，不應直接修改母版
+
+### 建議資料模型
+
+- `rb_source_template`
+  - `template_id`
+  - `template_key`
+  - `name`
+  - `description`
+  - `group_key` nullable
+  - `type_code`
+  - `prompts`
+  - `active`
+- `rb_rag_template`
+  - `template_rag_id`
+  - `template_id`
+  - `rag_type`
+  - `title`
+  - `content`
+  - `order_no`
+  - `overridable`
+
+### Group 與公版 Template
+
+- template 應支援群組分類，方便未來做團隊隔離或權限控管
+- `group_key != null`：代表某個 group 專用範本
+- `group_key = null`：代表公版 template，所有 group 都可使用
+- 查詢策略建議為：`builder.group + public templates`
+- `group_label` 目前仍是顯示用途欄位；若 template 要參與實際查詢或權限判斷，應新增穩定的 `group_key` / `group_id`，不要直接以顯示文字作為關聯鍵
 
 ## Override Factory（覆蓋工廠）
 

@@ -74,7 +74,8 @@ public class BuilderGraphCommandService {
                     sourceRequest.sourceType().getTypeId(),
                     sourceRequest.prompts(),
                     sourceRequest.orderNo(),
-                    !sourceRequest.ragRequests().isEmpty()
+                    !sourceRequest.ragRequests().isEmpty(),
+                    sourceRequest.templateId()
             ));
 
             List<BuilderGraphRagResponse> savedRags = saveRags(sourceEntity, sourceRequest.ragRequests());
@@ -83,6 +84,11 @@ public class BuilderGraphCommandService {
                     sourceRequest.sourceType().getSortPriority(),
                     new BuilderGraphSourceResponse(
                             sourceEntity.getSourceId(),
+                            sourceRequest.templateId(),
+                            sourceRequest.templateKey(),
+                            sourceRequest.templateName(),
+                            sourceRequest.templateDescription(),
+                            sourceRequest.templateGroupKey(),
                             sourceRequest.typeCode(),
                             sourceEntity.getOrderNo(),
                             sourceEntity.getPrompts(),
@@ -111,49 +117,55 @@ public class BuilderGraphCommandService {
 
         String resolvedBuilderCode = firstNonBlank(
                 builderRequest == null ? null : builderRequest.builderCode(),
-                existingBuilder == null ? null : existingBuilder.getBuilderCode(),
+                existingBuilder.getBuilderCode(),
                 "builder-" + builderId
         );
         validateBuilderCodeUniqueness(builderId, resolvedBuilderCode);
         String resolvedName = firstNonBlank(
                 builderRequest == null ? null : builderRequest.name(),
-                existingBuilder == null ? null : existingBuilder.getName(),
+                existingBuilder.getName(),
                 "Builder " + builderId
         );
         String resolvedGroupLabel = firstNonBlank(
                 builderRequest == null ? null : builderRequest.groupLabel(),
-                existingBuilder == null ? null : existingBuilder.getGroupLabel(),
+                existingBuilder.getGroupLabel(),
                 DEFAULT_GROUP_LABEL
+        );
+        String resolvedGroupKey = firstNonBlank(
+                builderRequest == null ? null : builderRequest.groupKey(),
+                existingBuilder.getGroupKey(),
+                toGroupKey(resolvedGroupLabel)
         );
         boolean includeFile = resolveBoolean(
                 builderRequest == null ? null : builderRequest.includeFile(),
-                existingBuilder == null ? null : existingBuilder.isIncludeFile(),
+                existingBuilder.isIncludeFile(),
                 false
         );
         String defaultOutputFormat = resolveDefaultOutputFormat(
                 includeFile,
                 builderRequest == null ? null : builderRequest.defaultOutputFormat(),
-                existingBuilder == null ? null : existingBuilder.getDefaultOutputFormat()
+                existingBuilder.getDefaultOutputFormat()
         );
         String resolvedFilePrefix = firstNonBlank(
                 builderRequest == null ? null : builderRequest.filePrefix(),
-                existingBuilder == null ? null : existingBuilder.getFilePrefix(),
+                existingBuilder.getFilePrefix(),
                 resolvedBuilderCode
         );
 
         builderConfig.setBuilderCode(resolvedBuilderCode);
+        builderConfig.setGroupKey(resolvedGroupKey);
         builderConfig.setGroupLabel(resolvedGroupLabel);
         builderConfig.setName(resolvedName);
         builderConfig.setDescription(resolveDescription(
                 builderRequest == null ? null : builderRequest.description(),
-                existingBuilder == null ? null : existingBuilder.getDescription()
+                existingBuilder.getDescription()
         ));
         builderConfig.setIncludeFile(includeFile);
         builderConfig.setDefaultOutputFormat(defaultOutputFormat);
         builderConfig.setFilePrefix(resolvedFilePrefix);
         builderConfig.setActive(resolveBoolean(
                 builderRequest == null ? null : builderRequest.active(),
-                existingBuilder == null ? null : existingBuilder.isActive(),
+                existingBuilder.isActive(),
                 true
         ));
 
@@ -301,6 +313,11 @@ public class BuilderGraphCommandService {
             nextAvailableOrder = resolvedOrder + 1;
 
             resolved.add(new ResolvedSourceRequest(
+                    pendingRequest.sourceRequest().templateId(),
+                    pendingRequest.sourceRequest().templateKey(),
+                    pendingRequest.sourceRequest().templateName(),
+                    pendingRequest.sourceRequest().templateDescription(),
+                    pendingRequest.sourceRequest().templateGroupKey(),
                     typeCode,
                     pendingRequest.sourceType(),
                     resolvedOrder,
@@ -366,6 +383,7 @@ public class BuilderGraphCommandService {
         return new BuilderGraphBuilderResponse(
                 builderConfig.getBuilderId(),
                 builderConfig.getBuilderCode(),
+                builderConfig.getGroupKey(),
                 builderConfig.getGroupLabel(),
                 builderConfig.getName(),
                 builderConfig.getDescription(),
@@ -429,10 +447,17 @@ public class BuilderGraphCommandService {
         }
 
         String normalized = rawRetrievalMode.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.equals("full_context") && !normalized.equals("vector_search")) {
+        if (normalized.equals("vector_search")) {
+            throw new BusinessException(
+                    "RAG_RETRIEVAL_MODE_UNSUPPORTED",
+                    "retrievalMode=vector_search is not implemented yet.",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        if (!normalized.equals("full_context")) {
             throw new BusinessException(
                     "INVALID_RETRIEVAL_MODE",
-                    "retrievalMode must be full_context or vector_search.",
+                    "retrievalMode must be full_context.",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -441,6 +466,18 @@ public class BuilderGraphCommandService {
 
     private String normalizeUpperCaseValue(String rawValue, String defaultValue) {
         return StringUtils.hasText(rawValue) ? rawValue.trim().toUpperCase(Locale.ROOT) : defaultValue;
+    }
+
+    private String toGroupKey(String rawGroupLabel) {
+        if (!StringUtils.hasText(rawGroupLabel)) {
+            return null;
+        }
+
+        String normalized = rawGroupLabel.trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]+", "-")
+                .replaceAll("^-+|-+$", "");
+        return StringUtils.hasText(normalized) ? normalized : null;
     }
 
     private int nextUnusedOrder(Set<Integer> usedOrders, int start) {
@@ -490,6 +527,11 @@ public class BuilderGraphCommandService {
     }
 
     private record ResolvedSourceRequest(
+            Long templateId,
+            String templateKey,
+            String templateName,
+            String templateDescription,
+            String templateGroupKey,
             String typeCode,
             SourceTypeEntity sourceType,
             Integer orderNo,

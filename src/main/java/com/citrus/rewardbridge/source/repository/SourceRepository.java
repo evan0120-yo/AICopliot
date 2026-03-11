@@ -12,6 +12,7 @@ public interface SourceRepository extends JpaRepository<SourceEntity, Long> {
             select s
             from SourceEntity s
             join fetch s.sourceType st
+            left join fetch s.copiedFromTemplate template
             where s.builderId = :builderId
             order by st.sortPriority asc, s.orderNo asc, s.sourceId asc
             """)

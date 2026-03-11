@@ -22,6 +22,9 @@ public class BuilderConfigEntity {
     @Column(name = "builder_code", nullable = false, unique = true, length = 100)
     private String builderCode;
 
+    @Column(name = "group_key", length = 100)
+    private String groupKey;
+
     @Column(name = "group_label", nullable = false, length = 100)
     private String groupLabel;
 
@@ -54,8 +57,35 @@ public class BuilderConfigEntity {
             String filePrefix,
             boolean active
     ) {
+        this(
+                builderId,
+                builderCode,
+                null,
+                groupLabel,
+                name,
+                description,
+                includeFile,
+                defaultOutputFormat,
+                filePrefix,
+                active
+        );
+    }
+
+    public BuilderConfigEntity(
+            Integer builderId,
+            String builderCode,
+            String groupKey,
+            String groupLabel,
+            String name,
+            String description,
+            boolean includeFile,
+            String defaultOutputFormat,
+            String filePrefix,
+            boolean active
+    ) {
         this.builderId = builderId;
         this.builderCode = builderCode;
+        this.groupKey = groupKey;
         this.groupLabel = groupLabel;
         this.name = name;
         this.description = description;

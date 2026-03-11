@@ -1,5 +1,6 @@
 package com.citrus.rewardbridge.source.entity;
 
+import com.citrus.rewardbridge.builder.entity.SourceTemplateEntity;
 import com.citrus.rewardbridge.common.entity.BuilderConfigEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,6 +42,9 @@ public class SourceEntity {
     @Column(name = "needs_rag_supplement", nullable = false)
     private boolean needsRagSupplement;
 
+    @Column(name = "copied_from_template_id")
+    private Long copiedFromTemplateId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "builder_id", referencedColumnName = "builder_id", insertable = false, updatable = false)
     private BuilderConfigEntity builderConfig;
@@ -49,11 +53,27 @@ public class SourceEntity {
     @JoinColumn(name = "type_id", referencedColumnName = "type_id", insertable = false, updatable = false)
     private SourceTypeEntity sourceType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "copied_from_template_id", referencedColumnName = "template_id", insertable = false, updatable = false)
+    private SourceTemplateEntity copiedFromTemplate;
+
     public SourceEntity(Integer builderId, Integer typeId, String prompts, Integer orderNo, boolean needsRagSupplement) {
+        this(builderId, typeId, prompts, orderNo, needsRagSupplement, null);
+    }
+
+    public SourceEntity(
+            Integer builderId,
+            Integer typeId,
+            String prompts,
+            Integer orderNo,
+            boolean needsRagSupplement,
+            Long copiedFromTemplateId
+    ) {
         this.builderId = builderId;
         this.typeId = typeId;
         this.prompts = prompts;
         this.orderNo = orderNo;
         this.needsRagSupplement = needsRagSupplement;
+        this.copiedFromTemplateId = copiedFromTemplateId;
     }
 }

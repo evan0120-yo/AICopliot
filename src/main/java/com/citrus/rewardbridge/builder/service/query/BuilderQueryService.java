@@ -18,6 +18,7 @@ public class BuilderQueryService {
                 .map(builderConfig -> new BuilderSummaryDto(
                         builderConfig.getBuilderId(),
                         builderConfig.getBuilderCode(),
+                        builderConfig.getGroupKey(),
                         builderConfig.getGroupLabel(),
                         builderConfig.getName(),
                         builderConfig.getDescription(),

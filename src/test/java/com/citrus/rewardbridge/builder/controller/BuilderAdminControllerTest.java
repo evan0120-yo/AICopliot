@@ -7,8 +7,11 @@ import com.citrus.rewardbridge.builder.dto.graph.BuilderGraphRequest;
 import com.citrus.rewardbridge.builder.dto.graph.BuilderGraphResponse;
 import com.citrus.rewardbridge.builder.dto.graph.BuilderGraphSourceRequest;
 import com.citrus.rewardbridge.builder.dto.graph.BuilderGraphSourceResponse;
+import com.citrus.rewardbridge.builder.dto.template.BuilderTemplateRagResponse;
+import com.citrus.rewardbridge.builder.dto.template.BuilderTemplateResponse;
 import com.citrus.rewardbridge.builder.usecase.command.BuilderGraphCommandUseCase;
 import com.citrus.rewardbridge.builder.usecase.query.BuilderGraphQueryUseCase;
+import com.citrus.rewardbridge.builder.usecase.query.BuilderTemplateQueryUseCase;
 import com.citrus.rewardbridge.common.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,15 +38,18 @@ class BuilderAdminControllerTest {
     private MockMvc mockMvc;
     private BuilderGraphCommandUseCase builderGraphCommandUseCase;
     private BuilderGraphQueryUseCase builderGraphQueryUseCase;
+    private BuilderTemplateQueryUseCase builderTemplateQueryUseCase;
 
     @BeforeEach
     void setUp() {
         builderGraphCommandUseCase = mock(BuilderGraphCommandUseCase.class);
         builderGraphQueryUseCase = mock(BuilderGraphQueryUseCase.class);
+        builderTemplateQueryUseCase = mock(BuilderTemplateQueryUseCase.class);
 
         mockMvc = MockMvcBuilders.standaloneSetup(new BuilderAdminController(
                         builderGraphCommandUseCase,
-                        builderGraphQueryUseCase
+                        builderGraphQueryUseCase,
+                        builderTemplateQueryUseCase
                 ))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -55,7 +61,7 @@ class BuilderAdminControllerTest {
         given(builderGraphCommandUseCase.saveGraph(eq(2), any(BuilderGraphRequest.class))).willReturn(response);
 
         BuilderGraphRequest request = new BuilderGraphRequest(
-                new BuilderGraphBuilderRequest("qa-smoke-doc", "測試團隊", "QA 冒煙測試文件產生", null, true, "xlsx", null, true),
+                new BuilderGraphBuilderRequest("qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試文件產生", null, true, "xlsx", null, true),
                 List.of(
                         new BuilderGraphSourceRequest("PINNED", 1, "你現在負責安全檢查...", List.of()),
                         new BuilderGraphSourceRequest("CONTENT", 2, "請依照以下流程完成分析", List.of())
@@ -86,11 +92,45 @@ class BuilderAdminControllerTest {
                 .andExpect(jsonPath("$.data.sources[1].rag[0].overridable").value(true));
     }
 
+    @Test
+    void shouldListBuilderTemplates() throws Exception {
+        given(builderTemplateQueryUseCase.listTemplates(2)).willReturn(List.of(
+                new BuilderTemplateResponse(
+                        301L,
+                        "qa-main-workflow",
+                        "QA 主要流程",
+                        "測試團隊常用的冒煙測試文件主流程。",
+                        "qa",
+                        "CONTENT",
+                        "請依照以下執行流程完成 QA 冒煙測試分析。",
+                        true,
+                        List.of(new BuilderTemplateRagResponse(
+                                401L,
+                                "default_content",
+                                "QA Smoke Default Content",
+                                "用戶沒有額外需求時，先產出一份 default draft。",
+                                1,
+                                true,
+                                "full_context"
+                        ))
+                )
+        ));
+
+        mockMvc.perform(get("/api/admin/builders/2/templates").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].templateKey").value("qa-main-workflow"))
+                .andExpect(jsonPath("$.data[0].groupKey").value("qa"))
+                .andExpect(jsonPath("$.data[0].rag[0].ragType").value("default_content"));
+    }
+
     private BuilderGraphResponse sampleResponse() {
         return new BuilderGraphResponse(
                 new BuilderGraphBuilderResponse(
                         2,
                         "qa-smoke-doc",
+                        "qa",
                         "測試團隊",
                         "QA 冒煙測試文件產生",
                         "協助 QA 快速產出冒煙測試案例",

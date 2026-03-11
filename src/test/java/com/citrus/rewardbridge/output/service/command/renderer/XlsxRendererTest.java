@@ -30,7 +30,7 @@ class XlsxRendererTest {
                 """;
 
         RenderedFile file = renderer.render(new OutputRenderCommand(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "測試團隊", "QA 冒煙測試", "生成冒煙測試", true, "xlsx", "qa-smoke-doc", true),
+                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試", "生成冒煙測試", true, "xlsx", "qa-smoke-doc", true),
                 OutputFormat.XLSX,
                 new ConsultBusinessResponse(true, "", response, null)
         ));

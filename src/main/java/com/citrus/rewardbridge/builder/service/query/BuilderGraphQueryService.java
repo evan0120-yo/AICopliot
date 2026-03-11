@@ -7,6 +7,7 @@ import com.citrus.rewardbridge.builder.dto.graph.BuilderGraphSourceResponse;
 import com.citrus.rewardbridge.common.entity.BuilderConfigEntity;
 import com.citrus.rewardbridge.common.exception.BusinessException;
 import com.citrus.rewardbridge.common.repository.BuilderConfigRepository;
+import com.citrus.rewardbridge.rag.RagRetrievalModeNormalizer;
 import com.citrus.rewardbridge.rag.entity.RagSupplementEntity;
 import com.citrus.rewardbridge.rag.repository.RagSupplementRepository;
 import com.citrus.rewardbridge.source.entity.SourceEntity;
@@ -45,6 +46,11 @@ public class BuilderGraphQueryService {
         List<BuilderGraphSourceResponse> sourceResponses = sources.stream()
                 .map(source -> new BuilderGraphSourceResponse(
                         source.getSourceId(),
+                        source.getCopiedFromTemplateId(),
+                        source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getTemplateKey(),
+                        source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getName(),
+                        source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getDescription(),
+                        source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getGroupKey(),
                         source.getSourceType().getTypeCode(),
                         source.getOrderNo(),
                         source.getPrompts(),
@@ -58,6 +64,7 @@ public class BuilderGraphQueryService {
                 new BuilderGraphBuilderResponse(
                         builderConfig.getBuilderId(),
                         builderConfig.getBuilderCode(),
+                        builderConfig.getGroupKey(),
                         builderConfig.getGroupLabel(),
                         builderConfig.getName(),
                         builderConfig.getDescription(),
@@ -91,7 +98,12 @@ public class BuilderGraphQueryService {
                 ragSupplement.getContent(),
                 ragSupplement.getOrderNo(),
                 ragSupplement.isOverridable(),
-                ragSupplement.getRetrievalMode()
+                RagRetrievalModeNormalizer.normalizeForRead(
+                        ragSupplement.getRetrievalMode(),
+                        ragSupplement.getSourceId(),
+                        ragSupplement.getRagId(),
+                        ragSupplement.getRagType()
+                )
         );
     }
 }

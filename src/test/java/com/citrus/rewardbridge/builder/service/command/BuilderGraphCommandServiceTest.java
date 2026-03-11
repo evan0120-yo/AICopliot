@@ -45,6 +45,7 @@ class BuilderGraphCommandServiceTest {
         return new BuilderConfigEntity(
                 builderId,
                 "builder-" + builderId,
+                "legacy-group",
                 "既有群組",
                 "既有 Builder " + builderId,
                 "既有說明",
@@ -79,6 +80,7 @@ class BuilderGraphCommandServiceTest {
 
         assertEquals(9, response.builder().builderId());
         assertEquals("builder-9", response.builder().builderCode());
+        assertEquals("legacy-group", response.builder().groupKey());
         assertEquals("既有群組", response.builder().groupLabel());
         assertEquals("新 Builder", response.builder().name());
         assertNull(response.builder().defaultOutputFormat());
@@ -92,6 +94,7 @@ class BuilderGraphCommandServiceTest {
         BuilderConfigEntity existingBuilder = new BuilderConfigEntity(
                 2,
                 "qa-smoke-doc",
+                "qa",
                 "測試團隊",
                 "QA 冒煙測試文件產生",
                 "desc",
@@ -189,7 +192,7 @@ class BuilderGraphCommandServiceTest {
         BuilderConfigEntity existingBuilder = existingBuilder(7);
         given(builderConfigRepository.findById(7)).willReturn(Optional.of(existingBuilder));
         given(builderConfigRepository.findByBuilderCode("qa-smoke-doc")).willReturn(Optional.of(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "測試團隊", "QA 冒煙測試文件產生", "desc", true, "xlsx", "qa-smoke-doc", true)
+                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試文件產生", "desc", true, "xlsx", "qa-smoke-doc", true)
         ));
         given(sourceTypeRepository.findByTypeCode("CONTENT")).willReturn(Optional.of(
                 new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3)
@@ -254,5 +257,90 @@ class BuilderGraphCommandServiceTest {
         )));
 
         assertEquals("RAG_ORDER_INVALID", exception.getCode());
+    }
+
+    @Test
+    void saveGraphShouldRejectUnsupportedVectorSearchRetrievalMode() {
+        BuilderConfigEntity existingBuilder = existingBuilder(14);
+        given(builderConfigRepository.findById(14)).willReturn(Optional.of(existingBuilder));
+        given(sourceTypeRepository.findByTypeCode("CONTENT")).willReturn(Optional.of(
+                new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3)
+        ));
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> service.saveGraph(14, new BuilderGraphRequest(
+                null,
+                List.of(new BuilderGraphSourceRequest(
+                        "CONTENT",
+                        1,
+                        "主要 prompt",
+                        List.of(new BuilderGraphRagRequest("default_content", null, "內容", 1, null, "vector_search"))
+                )),
+                null
+        )));
+
+        assertEquals("RAG_RETRIEVAL_MODE_UNSUPPORTED", exception.getCode());
+    }
+
+    @Test
+    void saveGraphShouldAcceptExplicitGroupKeyUpdate() {
+        BuilderConfigEntity existingBuilder = existingBuilder(15);
+        given(builderConfigRepository.findById(15)).willReturn(Optional.of(existingBuilder));
+        given(builderConfigRepository.findByBuilderCode("builder-15")).willReturn(Optional.of(existingBuilder));
+        given(builderConfigRepository.save(any(BuilderConfigEntity.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(sourceRepository.findAllByBuilderIdOrdered(15)).willReturn(List.of());
+        given(sourceTypeRepository.findByTypeCode("CONTENT")).willReturn(Optional.of(
+                new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3)
+        ));
+        given(sourceRepository.save(any(SourceEntity.class))).willAnswer(invocation -> {
+            SourceEntity entity = invocation.getArgument(0);
+            entity.setSourceId(150L);
+            return entity;
+        });
+
+        var response = service.saveGraph(15, new BuilderGraphRequest(
+                new BuilderGraphBuilderRequest(null, "qa", "測試團隊", "Builder 15", null, null, null, null, null),
+                List.of(new BuilderGraphSourceRequest("CONTENT", 1, "主要 prompt", List.of())),
+                null
+        ));
+
+        assertEquals("qa", response.builder().groupKey());
+        assertEquals("測試團隊", response.builder().groupLabel());
+    }
+
+    @Test
+    void saveGraphShouldDeriveUnicodeGroupKeyFromGroupLabelWhenMissing() {
+        BuilderConfigEntity existingBuilder = new BuilderConfigEntity(
+                16,
+                "builder-16",
+                null,
+                "未分類",
+                "Builder 16",
+                "desc",
+                false,
+                null,
+                "builder-16",
+                true
+        );
+        given(builderConfigRepository.findById(16)).willReturn(Optional.of(existingBuilder));
+        given(builderConfigRepository.findByBuilderCode("builder-16")).willReturn(Optional.of(existingBuilder));
+        given(builderConfigRepository.save(any(BuilderConfigEntity.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(sourceRepository.findAllByBuilderIdOrdered(16)).willReturn(List.of());
+        given(sourceTypeRepository.findByTypeCode("CONTENT")).willReturn(Optional.of(
+                new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3)
+        ));
+        given(sourceRepository.save(any(SourceEntity.class))).willAnswer(invocation -> {
+            SourceEntity entity = invocation.getArgument(0);
+            entity.setSourceId(160L);
+            return entity;
+        });
+
+        var response = service.saveGraph(16, new BuilderGraphRequest(
+                new BuilderGraphBuilderRequest(null, null, "測試團隊", "Builder 16", null, null, null, null, null),
+                List.of(new BuilderGraphSourceRequest("CONTENT", 1, "主要 prompt", List.of())),
+                null
+        ));
+
+        assertEquals("測試團隊", response.builder().groupKey());
+        assertEquals("測試團隊", response.builder().groupLabel());
     }
 }

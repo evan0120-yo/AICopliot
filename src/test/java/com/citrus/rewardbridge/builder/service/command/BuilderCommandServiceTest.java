@@ -23,7 +23,7 @@ class BuilderCommandServiceTest {
     @Test
     void assemblePromptUsesOverrideContentWhenUserTextExists() {
         PromptAssemblyResult promptAssemblyResult = service.assemblePrompt(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "測試團隊", "QA 冒煙測試", "生成冒煙測試用例", true, "xlsx", "qa-smoke-doc", true),
+                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試", "生成冒煙測試用例", true, "xlsx", "qa-smoke-doc", true),
                 List.of(new SourceEntryDto(10L, "CONTENT", "請依照以下規則產出案例", 1, true)),
                 Map.of(10L, List.of(
                         new RagSupplementDto(20L, 10L, "default_content", "Default", "這是預設內容", 1, true, "full_context"),
