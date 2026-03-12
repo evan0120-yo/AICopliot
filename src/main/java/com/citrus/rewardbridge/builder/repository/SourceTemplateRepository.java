@@ -11,15 +11,16 @@ public interface SourceTemplateRepository extends JpaRepository<SourceTemplateEn
 
     Optional<SourceTemplateEntity> findByTemplateKey(String templateKey);
 
+    List<SourceTemplateEntity> findAllByOrderByOrderNoAscTemplateIdAsc();
+
     @Query("""
             select st
             from SourceTemplateEntity st
-            join fetch st.sourceType sourceType
             where st.active = true
               and (st.groupKey is null or (:groupKey is not null and st.groupKey = :groupKey))
             order by
               case when st.groupKey is null then 1 else 0 end asc,
-              sourceType.sortPriority asc,
+              st.orderNo asc,
               st.templateId asc
             """)
     List<SourceTemplateEntity> findActiveByBuilderGroup(String groupKey);
@@ -27,11 +28,10 @@ public interface SourceTemplateRepository extends JpaRepository<SourceTemplateEn
     @Query("""
             select st
             from SourceTemplateEntity st
-            join fetch st.sourceType sourceType
             order by
               case when st.groupKey is null then 1 else 0 end asc,
-              sourceType.sortPriority asc,
+              st.orderNo asc,
               st.templateId asc
             """)
-    List<SourceTemplateEntity> findAllWithTypeOrdered();
+    List<SourceTemplateEntity> findAllForAdminOrder();
 }

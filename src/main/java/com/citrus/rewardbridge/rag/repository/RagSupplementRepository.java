@@ -13,4 +13,6 @@ public interface RagSupplementRepository extends JpaRepository<RagSupplementEnti
     List<RagSupplementEntity> findBySourceIdInOrderBySourceIdAscOrderNoAscRagIdAsc(Collection<Long> sourceIds);
 
     void deleteAllBySourceIdIn(Collection<Long> sourceIds);
+
+    void deleteAllBySourceId(Long sourceId);
 }

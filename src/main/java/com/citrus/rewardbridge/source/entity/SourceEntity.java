@@ -30,14 +30,14 @@ public class SourceEntity {
     @Column(name = "builder_id", nullable = false)
     private Integer builderId;
 
-    @Column(name = "type_id", nullable = false)
-    private Integer typeId;
-
     @Column(name = "prompts", nullable = false, columnDefinition = "TEXT")
     private String prompts;
 
     @Column(name = "order_no", nullable = false)
     private Integer orderNo;
+
+    @Column(name = "system_block", nullable = false)
+    private boolean systemBlock;
 
     @Column(name = "needs_rag_supplement", nullable = false)
     private boolean needsRagSupplement;
@@ -50,29 +50,45 @@ public class SourceEntity {
     private BuilderConfigEntity builderConfig;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "type_id", referencedColumnName = "type_id", insertable = false, updatable = false)
-    private SourceTypeEntity sourceType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "copied_from_template_id", referencedColumnName = "template_id", insertable = false, updatable = false)
     private SourceTemplateEntity copiedFromTemplate;
 
-    public SourceEntity(Integer builderId, Integer typeId, String prompts, Integer orderNo, boolean needsRagSupplement) {
-        this(builderId, typeId, prompts, orderNo, needsRagSupplement, null);
+    public SourceEntity(Integer builderId, String prompts, Integer orderNo, boolean needsRagSupplement) {
+        this(builderId, prompts, orderNo, false, needsRagSupplement, null);
     }
 
     public SourceEntity(
             Integer builderId,
-            Integer typeId,
+            String prompts,
+            Integer orderNo,
+            boolean systemBlock,
+            boolean needsRagSupplement
+    ) {
+        this(builderId, prompts, orderNo, systemBlock, needsRagSupplement, null);
+    }
+
+    public SourceEntity(
+            Integer builderId,
             String prompts,
             Integer orderNo,
             boolean needsRagSupplement,
             Long copiedFromTemplateId
     ) {
+        this(builderId, prompts, orderNo, false, needsRagSupplement, copiedFromTemplateId);
+    }
+
+    public SourceEntity(
+            Integer builderId,
+            String prompts,
+            Integer orderNo,
+            boolean systemBlock,
+            boolean needsRagSupplement,
+            Long copiedFromTemplateId
+    ) {
         this.builderId = builderId;
-        this.typeId = typeId;
         this.prompts = prompts;
         this.orderNo = orderNo;
+        this.systemBlock = systemBlock;
         this.needsRagSupplement = needsRagSupplement;
         this.copiedFromTemplateId = copiedFromTemplateId;
     }

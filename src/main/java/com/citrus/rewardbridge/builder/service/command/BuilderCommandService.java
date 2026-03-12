@@ -35,8 +35,7 @@ public class BuilderCommandService {
         boolean userTextAppliedByOverride = false;
         for (SourceEntryDto sourceEntry : sourceEntries) {
             promptBuilder.append("\n## [")
-                    .append(sourceEntry.typeCode())
-                    .append("-")
+                    .append("SOURCE-")
                     .append(sourceEntry.orderNo())
                     .append("]\n")
                     .append(sourceEntry.prompts())

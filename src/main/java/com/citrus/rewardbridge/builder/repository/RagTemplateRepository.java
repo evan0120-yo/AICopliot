@@ -11,4 +11,6 @@ public interface RagTemplateRepository extends JpaRepository<RagTemplateEntity, 
     List<RagTemplateEntity> findByTemplateIdOrderByOrderNoAscTemplateRagIdAsc(Long templateId);
 
     List<RagTemplateEntity> findByTemplateIdInOrderByTemplateIdAscOrderNoAscTemplateRagIdAsc(Collection<Long> templateIds);
+
+    void deleteAllByTemplateId(Long templateId);
 }

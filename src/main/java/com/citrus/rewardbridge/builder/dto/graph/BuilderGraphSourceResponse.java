@@ -9,18 +9,18 @@ public record BuilderGraphSourceResponse(
         String templateName,
         String templateDescription,
         String templateGroupKey,
-        String typeCode,
         Integer orderNo,
+        boolean systemBlock,
         String prompts,
         List<BuilderGraphRagResponse> rag
 ) {
     public BuilderGraphSourceResponse(
             Long sourceId,
-            String typeCode,
             Integer orderNo,
+            boolean systemBlock,
             String prompts,
             List<BuilderGraphRagResponse> rag
     ) {
-        this(sourceId, null, null, null, null, null, typeCode, orderNo, prompts, rag);
+        this(sourceId, null, null, null, null, null, orderNo, systemBlock, prompts, rag);
     }
 }

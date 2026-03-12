@@ -49,7 +49,7 @@ class TemplateAdminControllerTest {
     @Test
     void shouldListAllTemplates() throws Exception {
         given(builderTemplateQueryUseCase.listAllTemplates()).willReturn(List.of(
-                new BuilderTemplateResponse(1L, "system-guard", "系統安全防護", "desc", null, "PINNED", "prompts", true, List.of())
+                new BuilderTemplateResponse(1L, "system-guard", "系統安全防護", "desc", null, 1, "prompts", true, List.of())
         ));
 
         mockMvc.perform(get("/api/admin/templates").accept(MediaType.APPLICATION_JSON))
@@ -60,13 +60,13 @@ class TemplateAdminControllerTest {
 
     @Test
     void shouldCreateTemplate() throws Exception {
-        var response = new BuilderTemplateResponse(2L, "qa-template", "QA 範本", "desc", "qa", "CONTENT", "prompts", true, List.of());
+        var response = new BuilderTemplateResponse(2L, "qa-template", "QA 範本", "desc", "qa", 2, "prompts", true, List.of());
         given(builderTemplateCommandUseCase.createTemplate(any(BuilderTemplateRequest.class))).willReturn(response);
 
         mockMvc.perform(post("/api/admin/templates")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(new BuilderTemplateRequest(
-                                "qa-template", "QA 範本", "desc", "qa", "CONTENT", "prompts", true, List.of()
+                                "qa-template", "QA 範本", "desc", "qa", 2, "prompts", true, List.of()
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.templateId").value(2))
@@ -75,13 +75,13 @@ class TemplateAdminControllerTest {
 
     @Test
     void shouldUpdateTemplate() throws Exception {
-        var response = new BuilderTemplateResponse(2L, "qa-template", "QA 範本", "desc", "qa", "CONTENT", "prompts", true, List.of());
+        var response = new BuilderTemplateResponse(2L, "qa-template", "QA 範本", "desc", "qa", 2, "prompts", true, List.of());
         given(builderTemplateCommandUseCase.updateTemplate(eq(2L), any(BuilderTemplateRequest.class))).willReturn(response);
 
         mockMvc.perform(put("/api/admin/templates/2")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(new BuilderTemplateRequest(
-                                "qa-template", "QA 範本", "desc", "qa", "CONTENT", "prompts", true, List.of()
+                                "qa-template", "QA 範本", "desc", "qa", 2, "prompts", true, List.of()
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.templateId").value(2));

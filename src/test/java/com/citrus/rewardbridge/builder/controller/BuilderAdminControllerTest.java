@@ -63,8 +63,8 @@ class BuilderAdminControllerTest {
         BuilderGraphRequest request = new BuilderGraphRequest(
                 new BuilderGraphBuilderRequest("qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試文件產生", null, true, "xlsx", null, true),
                 List.of(
-                        new BuilderGraphSourceRequest("PINNED", 1, "你現在負責安全檢查...", List.of()),
-                        new BuilderGraphSourceRequest("CONTENT", 2, "請依照以下流程完成分析", List.of())
+                        new BuilderGraphSourceRequest(1, "你現在負責安全檢查...", List.of()),
+                        new BuilderGraphSourceRequest(2, "請依照以下流程完成分析", List.of())
                 ),
                 null
         );
@@ -76,7 +76,8 @@ class BuilderAdminControllerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.builder.builderId").value(2))
-                .andExpect(jsonPath("$.data.sources[1].typeCode").value("CONTENT"));
+                .andExpect(jsonPath("$.data.sources[0].systemBlock").value(true))
+                .andExpect(jsonPath("$.data.sources[1].orderNo").value(2));
     }
 
     @Test
@@ -88,6 +89,7 @@ class BuilderAdminControllerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.builder.builderCode").value("qa-smoke-doc"))
+                .andExpect(jsonPath("$.data.sources[0].systemBlock").value(true))
                 .andExpect(jsonPath("$.data.sources[1].rag[0].ragType").value("default_content"))
                 .andExpect(jsonPath("$.data.sources[1].rag[0].overridable").value(true));
     }
@@ -101,7 +103,7 @@ class BuilderAdminControllerTest {
                         "QA 主要流程",
                         "測試團隊常用的冒煙測試文件主流程。",
                         "qa",
-                        "CONTENT",
+                        1,
                         "請依照以下執行流程完成 QA 冒煙測試分析。",
                         true,
                         List.of(new BuilderTemplateRagResponse(
@@ -140,11 +142,11 @@ class BuilderAdminControllerTest {
                         true
                 ),
                 List.of(
-                        new BuilderGraphSourceResponse(100L, "PINNED", 1, "你現在負責安全檢查...", List.of()),
+                        new BuilderGraphSourceResponse(100L, 0, true, "你現在負責安全檢查...", List.of()),
                         new BuilderGraphSourceResponse(
                                 101L,
-                                "CONTENT",
                                 2,
+                                false,
                                 "請依照以下流程完成分析",
                                 List.of(new BuilderGraphRagResponse(
                                         200L,

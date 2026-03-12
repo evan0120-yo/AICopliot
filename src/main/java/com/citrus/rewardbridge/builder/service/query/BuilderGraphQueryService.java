@@ -51,8 +51,8 @@ public class BuilderGraphQueryService {
                         source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getName(),
                         source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getDescription(),
                         source.getCopiedFromTemplate() == null ? null : source.getCopiedFromTemplate().getGroupKey(),
-                        source.getSourceType().getTypeCode(),
                         source.getOrderNo(),
+                        source.isSystemBlock(),
                         source.getPrompts(),
                         ragsBySourceId.getOrDefault(source.getSourceId(), List.of()).stream()
                                 .map(this::toRagResponse)

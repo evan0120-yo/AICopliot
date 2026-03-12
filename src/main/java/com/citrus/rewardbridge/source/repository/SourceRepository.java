@@ -11,12 +11,13 @@ public interface SourceRepository extends JpaRepository<SourceEntity, Long> {
     @Query("""
             select s
             from SourceEntity s
-            join fetch s.sourceType st
             left join fetch s.copiedFromTemplate template
             where s.builderId = :builderId
-            order by st.sortPriority asc, s.orderNo asc, s.sourceId asc
+            order by s.orderNo asc, s.sourceId asc
             """)
     List<SourceEntity> findAllByBuilderIdOrdered(Integer builderId);
 
     void deleteAllByBuilderId(Integer builderId);
+
+    List<SourceEntity> findAllByCopiedFromTemplateId(Long copiedFromTemplateId);
 }

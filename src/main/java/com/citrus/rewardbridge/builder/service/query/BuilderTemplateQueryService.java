@@ -53,7 +53,7 @@ public class BuilderTemplateQueryService {
     }
 
     public List<BuilderTemplateResponse> listAllTemplates() {
-        List<SourceTemplateEntity> templates = sourceTemplateRepository.findAllWithTypeOrdered();
+        List<SourceTemplateEntity> templates = sourceTemplateRepository.findAllForAdminOrder();
         Map<Long, List<RagTemplateEntity>> ragsByTemplateId = loadRagsByTemplateIds(templates.stream()
                 .map(SourceTemplateEntity::getTemplateId)
                 .toList());
@@ -100,7 +100,7 @@ public class BuilderTemplateQueryService {
                 template.getName(),
                 template.getDescription(),
                 template.getGroupKey(),
-                template.getTypeCode(),
+                template.getOrderNo(),
                 template.getPrompts(),
                 template.isActive(),
                 ragTemplates.stream()

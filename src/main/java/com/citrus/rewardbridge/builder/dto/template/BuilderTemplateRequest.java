@@ -7,7 +7,7 @@ public record BuilderTemplateRequest(
         String name,
         String description,
         String groupKey,
-        String typeCode,
+        Integer orderNo,
         String prompts,
         Boolean active,
         List<BuilderTemplateRagRequest> rag

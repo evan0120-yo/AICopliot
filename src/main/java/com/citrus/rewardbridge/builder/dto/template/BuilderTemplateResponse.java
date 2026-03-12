@@ -8,7 +8,7 @@ public record BuilderTemplateResponse(
         String name,
         String description,
         String groupKey,
-        String typeCode,
+        Integer orderNo,
         String prompts,
         boolean active,
         List<BuilderTemplateRagResponse> rag

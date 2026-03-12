@@ -34,9 +34,9 @@ public class SourceQueryService {
         List<SourceEntryDto> entries = entities.stream()
                 .map(entity -> new SourceEntryDto(
                         entity.getSourceId(),
-                        entity.getSourceType().getTypeCode(),
                         entity.getPrompts(),
                         entity.getOrderNo(),
+                        entity.isSystemBlock(),
                         entity.isNeedsRagSupplement()
                 ))
                 .toList();

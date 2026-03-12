@@ -8,17 +8,16 @@ public record BuilderGraphSourceRequest(
         String templateName,
         String templateDescription,
         String templateGroupKey,
-        String typeCode,
         Integer orderNo,
+        Boolean systemBlock,
         String prompts,
         List<BuilderGraphRagRequest> rag
 ) {
     public BuilderGraphSourceRequest(
-            String typeCode,
             Integer orderNo,
             String prompts,
             List<BuilderGraphRagRequest> rag
     ) {
-        this(null, null, null, null, null, typeCode, orderNo, prompts, rag);
+        this(null, null, null, null, null, orderNo, false, prompts, rag);
     }
 }

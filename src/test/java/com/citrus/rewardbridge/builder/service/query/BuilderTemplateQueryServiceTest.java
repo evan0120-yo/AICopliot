@@ -6,7 +6,6 @@ import com.citrus.rewardbridge.builder.repository.RagTemplateRepository;
 import com.citrus.rewardbridge.builder.repository.SourceTemplateRepository;
 import com.citrus.rewardbridge.common.entity.BuilderConfigEntity;
 import com.citrus.rewardbridge.common.repository.BuilderConfigRepository;
-import com.citrus.rewardbridge.source.entity.SourceTypeEntity;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -48,24 +47,22 @@ class BuilderTemplateQueryServiceTest {
                 "QA 主要流程",
                 "測試團隊主流程",
                 "qa",
-                "CONTENT",
+                2,
                 "請依照以下執行流程完成 QA 冒煙測試分析。",
                 true
         );
         groupTemplate.setTemplateId(10L);
-        groupTemplate.setSourceType(new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3));
 
         SourceTemplateEntity publicTemplate = new SourceTemplateEntity(
                 "system-guard",
                 "系統安全防護",
                 "公版安全檢查",
                 null,
-                "PINNED",
+                1,
                 "你現在負責 RewardBridge consult flow 的 STEP1 安全檢查。",
                 true
         );
         publicTemplate.setTemplateId(11L);
-        publicTemplate.setSourceType(new SourceTypeEntity(1, "PINNED", "置頂類", "安全規則與角色設定", 1));
 
         RagTemplateEntity qaDefaultContent = new RagTemplateEntity(
                 10L,
@@ -99,6 +96,7 @@ class BuilderTemplateQueryServiceTest {
         assertEquals(2, response.size());
         assertEquals("qa-main-workflow", response.get(0).templateKey());
         assertEquals("qa", response.get(0).groupKey());
+        assertEquals(2, response.get(0).orderNo());
         assertEquals("system-guard", response.get(1).templateKey());
         assertEquals("full_context", response.get(1).rag().get(0).retrievalMode());
     }

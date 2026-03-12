@@ -5,7 +5,6 @@ import com.citrus.rewardbridge.common.repository.BuilderConfigRepository;
 import com.citrus.rewardbridge.rag.entity.RagSupplementEntity;
 import com.citrus.rewardbridge.rag.repository.RagSupplementRepository;
 import com.citrus.rewardbridge.source.entity.SourceEntity;
-import com.citrus.rewardbridge.source.entity.SourceTypeEntity;
 import com.citrus.rewardbridge.source.repository.SourceRepository;
 import org.junit.jupiter.api.Test;
 
@@ -43,9 +42,8 @@ class BuilderGraphQueryServiceTest {
                 true
         );
 
-        SourceEntity sourceEntity = new SourceEntity(2, 3, "請依照以下流程完成分析", 2, true);
+        SourceEntity sourceEntity = new SourceEntity(2, "請依照以下流程完成分析", 2, false, true);
         sourceEntity.setSourceId(10L);
-        sourceEntity.setSourceType(new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3));
 
         RagSupplementEntity ragSupplementEntity = new RagSupplementEntity(
                 10L,
@@ -68,7 +66,8 @@ class BuilderGraphQueryServiceTest {
         assertEquals("qa-smoke-doc", response.builder().builderCode());
         assertEquals("qa", response.builder().groupKey());
         assertEquals(1, response.sources().size());
-        assertEquals("CONTENT", response.sources().get(0).typeCode());
+        assertEquals(2, response.sources().get(0).orderNo());
+        assertEquals(false, response.sources().get(0).systemBlock());
         assertEquals(1, response.sources().get(0).rag().size());
         assertEquals("default_content", response.sources().get(0).rag().get(0).ragType());
     }
@@ -88,9 +87,8 @@ class BuilderGraphQueryServiceTest {
                 true
         );
 
-        SourceEntity sourceEntity = new SourceEntity(3, 3, "請依照以下流程完成分析", 1, true);
+        SourceEntity sourceEntity = new SourceEntity(3, "請依照以下流程完成分析", 1, false, true);
         sourceEntity.setSourceId(30L);
-        sourceEntity.setSourceType(new SourceTypeEntity(3, "CONTENT", "內文類", "主要業務流程與回應格式", 3));
 
         RagSupplementEntity ragSupplementEntity = new RagSupplementEntity(
                 30L,
@@ -111,5 +109,34 @@ class BuilderGraphQueryServiceTest {
         var response = service.loadGraph(3);
 
         assertEquals("full_context", response.sources().getFirst().rag().getFirst().retrievalMode());
+    }
+
+    @Test
+    void loadGraphShouldExposeSystemBlockFlag() {
+        BuilderConfigEntity builderConfig = new BuilderConfigEntity(
+                4,
+                "qa-smoke-doc",
+                "qa",
+                "測試團隊",
+                "QA 冒煙測試文件產生",
+                "desc",
+                true,
+                "xlsx",
+                "qa-smoke-doc",
+                true
+        );
+
+        SourceEntity systemSource = new SourceEntity(4, "系統安全區塊", 0, true, false);
+        systemSource.setSourceId(50L);
+
+        given(builderConfigRepository.findById(4)).willReturn(Optional.of(builderConfig));
+        given(sourceRepository.findAllByBuilderIdOrdered(4)).willReturn(List.of(systemSource));
+        given(ragSupplementRepository.findBySourceIdInOrderBySourceIdAscOrderNoAscRagIdAsc(List.of(50L)))
+                .willReturn(List.of());
+
+        var response = service.loadGraph(4);
+
+        assertEquals(true, response.sources().getFirst().systemBlock());
+        assertEquals(0, response.sources().getFirst().orderNo());
     }
 }
