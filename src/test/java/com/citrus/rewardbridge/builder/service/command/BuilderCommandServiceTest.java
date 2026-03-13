@@ -23,17 +23,17 @@ class BuilderCommandServiceTest {
     @Test
     void assemblePromptUsesOverrideContentWhenUserTextExists() {
         PromptAssemblyResult promptAssemblyResult = service.assemblePrompt(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試", "生成冒煙測試用例", true, "xlsx", "qa-smoke-doc", true),
+                new BuilderConfigEntity(2, "qa-functional-doc", "qa", "測試團隊", "QA 功能測試", "生成功能測試用例", true, "xlsx", "qa-functional-doc", true),
                 List.of(new SourceEntryDto(10L, "請依照以下規則產出案例", 1, false, true)),
                 Map.of(10L, List.of(
                         new RagSupplementDto(20L, 10L, "default_content", "Default", "這是預設內容", 1, true, "full_context"),
                         new RagSupplementDto(21L, 10L, "column_rules", "Columns", "請輸出 markdown table", 2, false, "full_context")
                 )),
-                "請根據會員二期需求產出冒煙測試"
+                "請根據會員二期需求產出功能測試"
         );
 
         String prompt = promptAssemblyResult.instructions();
-        assertTrue(prompt.contains("請根據會員二期需求產出冒煙測試"));
+        assertTrue(prompt.contains("請根據會員二期需求產出功能測試"));
         assertTrue(prompt.contains("請輸出 markdown table"));
         assertTrue(prompt.contains("[RAW_USER_TEXT]"));
         assertTrue(prompt.contains("FRAMEWORK_TAIL"));

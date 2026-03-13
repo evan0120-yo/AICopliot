@@ -1,63 +1,65 @@
-# AIClient Module - PRD
+# AIClient Module
 
 ## Overview
-AIClient 模組負責與所有外部 AI 模型的通訊，作為系統與 AI 服務之間的統一抽象層。目前主要對接 OpenAI Responses API，未來可擴充至其他模型。
+AIClient 模組目前負責與 OpenAI Responses API 溝通。它接收 Builder 組好的 instructions、user text 與附件，並回傳結構化的 `AiConsultResponse`。
 
-初期主路線以 **Responses API** 為主，因為需要同時支援文字、圖片、與附件直送模型。
+## Current Responsibilities
+- 取得 `OpenAIClient`
+- 將 user text 正規化
+- 將附件上傳到 OpenAI files API
+- 根據副檔名把附件轉成 file input 或 image input
+- 呼叫 Responses API
+- 將 structured output 解析成 `AiConsultResponse`
+- 將 OpenAI / attachment 失敗轉成 `BusinessException`
 
-## Responsibilities
-- 封裝 AI API 呼叫（目前為 OpenAI Responses API）
-- 管理 API key、rate limiting、retry 策略
-- 統一 request/response 格式，屏蔽不同 AI 供應商的差異
-- 處理 API 錯誤
-- 支援將 PM 傳入的文字、文件、圖片直接作為模型輸入材料送出
+## Current Input
+- `model`
+- `text`
+- `instructions`
+- `attachments`
 
-## Scope
-- **In Scope**: Responses API 呼叫、錯誤處理、retry、structured response 解析
-- **Out of Scope**: prompt 組裝（Builder 負責）、業務邏輯
-
-## Interface
-- **Input**:
-  - 組裝完成的 prompt（來自 Builder）
-  - PM 單次 consult 的原始附件（文件 / 圖片，直接 passthrough）
-- **Output**: AI 模型的結構化回應內容（AiConsultResponse）
-
-## Dependencies
-- OpenAI Responses API（初期）
-- HTTP Client（RestClient / WebClient）
-
-## Factory Pattern
-- 採用工廠模式抽象 AI 供應商
-- 目前實作：OpenAI Responses API
-- 未來可擴充：Anthropic Claude、Google Gemini、Local LLM 等
-
-## Current Supported Inputs
-- text input
-- image input
-- file input
-
-## Future: Embedding API
-- 初期不需要 Embedding API（RAG 採用 Full-Context 模式）
-- 未來 RAG 的 `retrieval_mode` 切換為 `vector_search` 時，再新增 Embedding API 呼叫功能
-- 工廠模式已預留擴充空間
-
-## Failure Handling
-若附件串入模型失敗、或模型 / Responses API 不接受附件格式：
+## Current Output
 
 ```json
 {
-  "status": false,
-  "statusAns": "串入檔案格式錯誤",
-  "response": ""
+  "status": true,
+  "statusAns": "",
+  "response": "..."
 }
 ```
 
-- 不做 fallback 文字抽取
-- 不自動切換成其他較低可信度路線
+之後會被包成 `ConsultBusinessResponse` 傳回 Builder。
+
+## Attachment Handling
+目前行為：
+- 空附件會被略過
+- 圖片副檔名會走 `VISION`
+- 其他支援文件會走 `USER_DATA`
+- 每個附件都會先寫入 temp file，再上傳到 OpenAI
+- 上傳完成後會刪除 temp file
+
+## Supported Attachment Types
+- image: `jpg`, `jpeg`, `png`, `webp`, `gif`, `bmp`
+- file: `pdf`, `doc`, `docx`
+
+## Error Mapping
+目前已處理：
+- OpenAI client 未配置
+- OpenAI auth failure
+- attachment transfer failure
+- attachment upload rejected
+- OpenAI empty structured output
+- generic OpenAI analysis failure
+
+## Current Non-Goals
+目前 code 尚未實作：
+- provider factory
+- retry / backoff
+- rate limiting
+- multi-provider routing
+- embedding / vector retrieval
 
 ## Notes
-- API key 透過環境變數或 application properties 管理，不寫死在程式碼中
-- 初期主路線採用 GPT Responses API
-- PM 上傳的附件不做落地保存，僅作為單次請求內容送給模型
-- 目標體驗接近「直接把文字、文件、圖片貼給 GPT 對話」
-- AIClient 不受 Source / RAG 架構重構影響，介面維持不變
+- 附件不做文字抽取 fallback
+- 附件不落地保存
+- 目前唯一對接供應商是 OpenAI

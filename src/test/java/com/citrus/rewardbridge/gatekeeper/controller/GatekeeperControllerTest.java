@@ -52,11 +52,11 @@ class GatekeeperControllerTest {
                 ),
                 new BuilderSummaryDto(
                         2,
-                        "qa-smoke-doc",
+                        "qa-functional-doc",
                         "qa",
                         "測試團隊",
-                        "QA 冒煙測試文件產生",
-                        "協助 QA 依需求快速產出可轉成 xlsx 的冒煙測試案例。",
+                        "QA 功能測試文件產生",
+                        "協助 QA 依需求快速產出可轉成 xlsx 的功能測試案例。",
                         true,
                         "xlsx"
                 )

@@ -61,7 +61,7 @@ class BuilderAdminControllerTest {
         given(builderGraphCommandUseCase.saveGraph(eq(2), any(BuilderGraphRequest.class))).willReturn(response);
 
         BuilderGraphRequest request = new BuilderGraphRequest(
-                new BuilderGraphBuilderRequest("qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試文件產生", null, true, "xlsx", null, true),
+                new BuilderGraphBuilderRequest("qa-functional-doc", "qa", "測試團隊", "QA 功能測試文件產生", null, true, "xlsx", null, true),
                 List.of(
                         new BuilderGraphSourceRequest(1, "你現在負責安全檢查...", List.of()),
                         new BuilderGraphSourceRequest(2, "請依照以下流程完成分析", List.of())
@@ -88,7 +88,7 @@ class BuilderAdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.builder.builderCode").value("qa-smoke-doc"))
+                .andExpect(jsonPath("$.data.builder.builderCode").value("qa-functional-doc"))
                 .andExpect(jsonPath("$.data.sources[0].systemBlock").value(true))
                 .andExpect(jsonPath("$.data.sources[1].rag[0].ragType").value("default_content"))
                 .andExpect(jsonPath("$.data.sources[1].rag[0].overridable").value(true));
@@ -101,15 +101,15 @@ class BuilderAdminControllerTest {
                         301L,
                         "qa-main-workflow",
                         "QA 主要流程",
-                        "測試團隊常用的冒煙測試文件主流程。",
+                        "測試團隊常用的功能測試文件主流程。",
                         "qa",
                         1,
-                        "請依照以下執行流程完成 QA 冒煙測試分析。",
+                        "請依照以下執行流程完成 QA 功能測試分析。",
                         true,
                         List.of(new BuilderTemplateRagResponse(
                                 401L,
                                 "default_content",
-                                "QA Smoke Default Content",
+                                "QA Functional Test Default Content",
                                 "用戶沒有額外需求時，先產出一份 default draft。",
                                 1,
                                 true,
@@ -131,14 +131,14 @@ class BuilderAdminControllerTest {
         return new BuilderGraphResponse(
                 new BuilderGraphBuilderResponse(
                         2,
-                        "qa-smoke-doc",
+                        "qa-functional-doc",
                         "qa",
                         "測試團隊",
-                        "QA 冒煙測試文件產生",
-                        "協助 QA 快速產出冒煙測試案例",
+                        "QA 功能測試文件產生",
+                        "協助 QA 快速產出功能測試案例",
                         true,
                         "xlsx",
-                        "qa-smoke-doc",
+                        "qa-functional-doc",
                         true
                 ),
                 List.of(

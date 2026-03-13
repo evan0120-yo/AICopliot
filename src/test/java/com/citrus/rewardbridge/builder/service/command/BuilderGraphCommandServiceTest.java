@@ -171,12 +171,12 @@ class BuilderGraphCommandServiceTest {
     void saveGraphShouldRejectDuplicateBuilderCode() {
         BuilderConfigEntity existingBuilder = existingBuilder(7);
         given(builderConfigRepository.findById(7)).willReturn(Optional.of(existingBuilder));
-        given(builderConfigRepository.findByBuilderCode("qa-smoke-doc")).willReturn(Optional.of(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試文件產生", "desc", true, "xlsx", "qa-smoke-doc", true)
+        given(builderConfigRepository.findByBuilderCode("qa-functional-doc")).willReturn(Optional.of(
+                new BuilderConfigEntity(2, "qa-functional-doc", "qa", "測試團隊", "QA 功能測試文件產生", "desc", true, "xlsx", "qa-functional-doc", true)
         ));
 
         BusinessException exception = assertThrows(BusinessException.class, () -> service.saveGraph(7, new BuilderGraphRequest(
-                new BuilderGraphBuilderRequest("qa-smoke-doc", null, "Builder 7", null, null, null, null, null),
+                new BuilderGraphBuilderRequest("qa-functional-doc", null, "Builder 7", null, null, null, null, null),
                 List.of(new BuilderGraphSourceRequest(1, "主要 prompt", List.of())),
                 null
         )));

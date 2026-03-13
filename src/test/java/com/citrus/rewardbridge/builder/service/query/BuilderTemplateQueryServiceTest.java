@@ -31,14 +31,14 @@ class BuilderTemplateQueryServiceTest {
     void listTemplatesShouldReturnGroupSpecificAndPublicTemplates() {
         BuilderConfigEntity builderConfig = new BuilderConfigEntity(
                 2,
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 "qa",
                 "測試團隊",
-                "QA 冒煙測試文件產生",
-                "協助 QA 快速產出冒煙測試案例",
+                "QA 功能測試文件產生",
+                "協助 QA 快速產出功能測試案例",
                 true,
                 "xlsx",
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 true
         );
 
@@ -48,7 +48,7 @@ class BuilderTemplateQueryServiceTest {
                 "測試團隊主流程",
                 "qa",
                 2,
-                "請依照以下執行流程完成 QA 冒煙測試分析。",
+                "請依照以下執行流程完成 QA 功能測試分析。",
                 true
         );
         groupTemplate.setTemplateId(10L);
@@ -67,7 +67,7 @@ class BuilderTemplateQueryServiceTest {
         RagTemplateEntity qaDefaultContent = new RagTemplateEntity(
                 10L,
                 "default_content",
-                "QA Smoke Default Content",
+                "QA Functional Test Default Content",
                 "用戶沒有額外需求時，先產出一份 default draft。",
                 1,
                 true,

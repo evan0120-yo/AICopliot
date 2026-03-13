@@ -31,14 +31,14 @@ class BuilderGraphQueryServiceTest {
     void loadGraphShouldReturnSortedSourceAndRagStructure() {
         BuilderConfigEntity builderConfig = new BuilderConfigEntity(
                 2,
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 "qa",
                 "測試團隊",
-                "QA 冒煙測試文件產生",
-                "協助 QA 快速產出冒煙測試案例",
+                "QA 功能測試文件產生",
+                "協助 QA 快速產出功能測試案例",
                 true,
                 "xlsx",
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 true
         );
 
@@ -63,7 +63,7 @@ class BuilderGraphQueryServiceTest {
 
         var response = service.loadGraph(2);
 
-        assertEquals("qa-smoke-doc", response.builder().builderCode());
+        assertEquals("qa-functional-doc", response.builder().builderCode());
         assertEquals("qa", response.builder().groupKey());
         assertEquals(1, response.sources().size());
         assertEquals(2, response.sources().get(0).orderNo());
@@ -115,14 +115,14 @@ class BuilderGraphQueryServiceTest {
     void loadGraphShouldExposeSystemBlockFlag() {
         BuilderConfigEntity builderConfig = new BuilderConfigEntity(
                 4,
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 "qa",
                 "測試團隊",
-                "QA 冒煙測試文件產生",
+                "QA 功能測試文件產生",
                 "desc",
                 true,
                 "xlsx",
-                "qa-smoke-doc",
+                "qa-functional-doc",
                 true
         );
 

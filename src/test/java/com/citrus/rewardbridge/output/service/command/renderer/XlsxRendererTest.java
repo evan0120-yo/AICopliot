@@ -19,7 +19,7 @@ class XlsxRendererTest {
     @Test
     void renderParsesMarkdownTableIntoStructuredSheet() throws Exception {
         String response = """
-                冒煙測試摘要
+                功能測試摘要
                 - 覆蓋首頁入口與 Rewards 主流程
                 - 補充重複點擊與跨頁返回場景
 
@@ -30,7 +30,7 @@ class XlsxRendererTest {
                 """;
 
         RenderedFile file = renderer.render(new OutputRenderCommand(
-                new BuilderConfigEntity(2, "qa-smoke-doc", "qa", "測試團隊", "QA 冒煙測試", "生成冒煙測試", true, "xlsx", "qa-smoke-doc", true),
+                new BuilderConfigEntity(2, "qa-functional-doc", "qa", "測試團隊", "QA 功能測試", "生成功能測試", true, "xlsx", "qa-functional-doc", true),
                 OutputFormat.XLSX,
                 new ConsultBusinessResponse(true, "", response, null)
         ));
@@ -41,7 +41,7 @@ class XlsxRendererTest {
             assertEquals("用例編號", workbook.getSheet("cases").getRow(1).getCell(0).getStringCellValue());
             assertEquals("TC-001", workbook.getSheet("cases").getRow(2).getCell(0).getStringCellValue());
             assertEquals("點擊首頁浮動按鈕入口", workbook.getSheet("cases").getRow(2).getCell(5).getStringCellValue());
-            assertEquals("冒煙測試摘要", workbook.getSheet("summary").getRow(1).getCell(0).getStringCellValue());
+            assertEquals("功能測試摘要", workbook.getSheet("summary").getRow(1).getCell(0).getStringCellValue());
         }
     }
 }

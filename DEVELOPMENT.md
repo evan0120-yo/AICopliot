@@ -1,137 +1,136 @@
-# RewardBridge - Backend Development Guide
+# RewardBridge Backend Development Guide
 
-## 1. 架構
+## Layering
+目前 Java 專案的分層如下：
 
 ```text
 Controller -> UseCase -> Service -> Repository
 ```
 
-規則不變：
-- Controller 只呼叫 UseCase
-- UseCase 可跨模組協作
-- Service 不跨模組
-- Repository 只做資料存取
+規則：
+- Controller 只處理 HTTP 與 `ApiResponse`
+- UseCase 可以跨模組協作
+- Service 只處理模組內部邏輯
+- Repository 只負責資料存取
 
-## 2. 最新資料模型基準
+## Configuration
+- `application.yml` 定義共用設定結構
+- `application-local.properties` 提供 local profile 覆蓋值
+- `application-test.properties` 提供測試環境覆蓋值
+- `RewardBridgeProperties` 目前只管理：
+  - `rewardbridge.consult`
+  - `rewardbridge.ai.models.consult`
 
-### Builder
-- BuilderConfigEntity
+## Database Source Of Truth
+目前沒有 migration SQL，schema 以 JPA entity 為準。
 
-### Source
-- SourceEntity 不再有 `typeId`
-- Source 只保留：
-  - `builderId`
-  - `prompts`
-  - `orderNo`
-  - `systemBlock`
-  - `needsRagSupplement`
-  - `copiedFromTemplateId`
+核心 entity：
+- `BuilderConfigEntity`
+- `SourceEntity`
+- `RagSupplementEntity`
+- `SourceTemplateEntity`
+- `RagTemplateEntity`
 
-### RAG
-- RagSupplementEntity 維持
-- 只依 `sourceId + orderNo` 工作
+已不再使用：
+- `rb_source_type`
+- `rb_source.type_id`
+- `typeCode`
 
-### Template
-- SourceTemplateEntity 不再有 `typeCode`
-- 新增 `orderNo`
-- RagTemplateEntity 維持 `orderNo`
+## Public API Conventions
+- 所有 controller 回傳 `ApiResponse`
+- 業務錯誤使用 `BusinessException`
+- `GlobalExceptionHandler` 會統一轉成 HTTP status + `ApiResponse.error(...)`
 
-## 3. 排序規則
-
-### Source
-- `systemBlock=true` 的 Source 固定排最前
-- 建議保留 `orderNo = 0`
-- 非系統 Source 於同 builder 內唯一
-- 非系統 Source 儲存前正規化為 `1..n`
-- 查詢時 `ORDER BY source.order_no, source_id`
-
-### RAG
-- 同 source 內唯一
-- 後端儲存前正規化為 `1..n`
-- 查詢時 `ORDER BY rag.order_no, rag_id`
-
-### Template
-- Template 自己有 `orderNo`
-- 同 library 顯示只看 template.orderNo
-
-## 4. Prompt Assembly
-
-Builder 組 prompt 的固定規則：
+## Consult Flow
 
 ```text
-for source in sources(orderNo asc):
-  append source.prompts
-  for rag in source.rags(orderNo asc):
-    append rag.content
+GatekeeperController
+  -> GatekeeperCommandUseCase
+  -> ConsultGuardService
+  -> BuilderCommandUseCase
+  -> BuilderCommandService
+  -> AiClientCommandUseCase
+  -> OutputCommandUseCase
 ```
 
-說明：
-- 第一筆通常是 `systemBlock=true` 的系統安全區塊
-- 後端仍保留 code-level framework tail 作為最後保底
-- `systemBlock` 讓 Graph UI 與實際 prompt 順序更接近
+### Guard Rules
+目前已實作：
+- `builderId` required
+- builder must exist
+- builder must be active
+- `outputFormat` must be `markdown` or `xlsx` when provided
+- file extension allowlist
+- file count limit
+- file size limit
+- total upload size limit
+- client IP must be resolvable
 
-## 5. Graph / Template API 開發準則
+目前未實作：
+- IP allowlist / blocklist
+- MIME validation
 
-### Graph API
+## Builder Rules
+- source 依 `order_no ASC, source_id ASC`
+- rag 依 `order_no ASC, rag_id ASC`
+- `systemBlock=true` 的 source 會被保留在 graph save 之外
+- 非系統 source 與 rag 在 save graph 時會重編為 `1..n`
+- `BuilderOverrideFactory` 目前有兩個策略，依 Spring `@Order` 優先度排列：
+  1. `TemplateOverrideStrategy` (Order 0)：當 RAG 可覆蓋、有 user text、且 content 包含 `{{userText}}` 佔位符時，將佔位符替換為 user text
+  2. `SimpleOverrideStrategy` (Order 1)：當 RAG 可覆蓋且有 user text 時，直接用 user text 完整覆蓋該 RAG content
+- 兩個策略透過 `BuilderOverrideStrategy` 介面統一管理，factory 會依序嘗試，第一個 `supports()` 為 true 的策略生效
+
+## Graph API Rules
 - `GET /api/admin/builders/{builderId}/graph`
 - `PUT /api/admin/builders/{builderId}/graph`
 
-request / response 都不再有 `typeCode`
+目前 request 主要使用 `sources[]`，但程式仍兼容舊的 `aiagent[]` 載入形狀。
 
-Graph response 需帶：
-- `systemBlock`
-- `orderNo`
-- `prompts`
-- `rag[]`
-- template metadata
+saveGraph 行為：
+- merge builder fields
+- 保留現有 `system_block=true` source
+- 刪除並重建所有 `system_block=false` source/rag
+- 忽略 payload 中 `systemBlock=true` 的 source
 
-saveGraph 準則：
-- 保留 `systemBlock=true` 的 Source
-- 只刪除並重建 `systemBlock=false` 的 Source / RAG
-- 不信任前端對系統區塊的增刪改排序
-
-### Template API
+## Template API Rules
 - `GET /api/admin/builders/{builderId}/templates`
 - `GET /api/admin/templates`
 - `POST /api/admin/templates`
 - `PUT /api/admin/templates/{templateId}`
 - `DELETE /api/admin/templates/{templateId}`
 
-request / response 要有：
-- `orderNo`
-- `prompts`
-- `rag[]`
-- `groupKey`
-- template metadata
+目前 template 規則：
+- `templateKey` 必須唯一
+- `orderNo` 會被重排成 canonical order
+- delete template 前，會先把 `rb_source.copied_from_template_id` 置空
 
-## 6. Migration 準則
+## Output Rules
+- `include_file=false` 時，只回文字結果
+- `include_file=true` 時，使用 `outputFormat` 或 `default_output_format`
+- `MarkdownRenderer` 直接輸出 `.md`
+- `XlsxRenderer` 會先嘗試解析 markdown table
+- 若沒有偵測到 markdown table，則輸出單純逐行內容
 
-### Source 舊資料
-1. 先依舊排序邏輯查出 canonical order
-2. 重編非系統 Source 的 `orderNo = 1..n`
-3. 補一筆 `systemBlock=true` 的系統安全區塊
-4. 移除 `type_id`
+## Local Seed Data
+`local` profile 會執行 `initData.Local`：
+- upsert builder config
+- upsert templates
+- upsert source blocks
+- 僅在不存在時補 rag supplements
 
-### Template 舊資料
-1. 先依舊邏輯查出 canonical order
-2. 重編 `orderNo = 1..n`
-3. 移除 `type_code`
+因此 local seed 並不是「全部清掉重建」，而是偏同步式初始化。
 
-## 7. 文件與程式碼一致性要求
+## Testing
+目前主要是單元測試與 controller 層測試。
 
-任何新程式碼都必須符合：
-- 不新增 `typeCode`
-- 不依賴 `rb_source_type`
-- 不在 query 中用 type 排序
-- 不在前端或後端用 `PINNED/CHECK/CONTENT`
-- `systemBlock` 目前只代表系統安全區塊
-- 權限行為不要先存成多個布林欄位，先由角色 + `systemBlock` 推導
+測試檔案覆蓋重點：
+- graph command/query
+- template command/query
+- builder command service
+- rag query service
+- xlsx renderer
+- controllers
 
-## 8. 未來但現在不做
-- admin 編輯系統安全區塊
-- 角色權限控制
-- `tags`
-- tag 搜尋
-- tag-based 團隊規範
-
-等 `systemBlock` 模型穩定後，再擴充權限控制。
+## Current Development Notes
+- 若要改資料模型，先改 entity，再檢查 local/test profile 是否仍能靠 `ddl-auto=create-drop` 啟動
+- 若要改 API 契約，需同時檢查 controller、DTO、exception handler 與 seed data 是否一起對齊
+- 若要改 consult 結果格式，需同時檢查 Output 與前端相容性
